@@ -1,166 +1,1250 @@
-var SHEET_NAME = '지급신청';
+<!DOCTYPE html>
 
-function getSheet() {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(SHEET_NAME);
-  if (!sheet) {
-    sheet = ss.insertSheet(SHEET_NAME);
-    var headers = ['ID','신청일시','신청자','부서','구분','품목','지급일','구매처','금액','상태','검토자','검토일','검토의견'];
-    sheet.getRange(1, 1, 1, 13).setValues([headers]);
-    sheet.getRange(1, 1, 1, 13).setBackground('#1a3c6e');
-    sheet.getRange(1, 1, 1, 13).setFontColor('#ffffff');
-    sheet.getRange(1, 1, 1, 13).setFontWeight('bold');
-    sheet.setFrozenRows(1);
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>예외 지급 관리 시스템</title>
+<style>
+  :root {
+    --primary: #1a3c6e;
+    --primary-light: #2a5298;
+    --accent: #e8f0fe;
+    --success: #1e7e34;
+    --success-bg: #d4edda;
+    --danger: #b02a37;
+    --danger-bg: #f8d7da;
+    --warning: #856404;
+    --warning-bg: #fff3cd;
+    --gray: #6c757d;
+    --gray-light: #f8f9fa;
+    --border: #dee2e6;
+    --white: #ffffff;
+    --shadow: 0 2px 12px rgba(0,0,0,0.10);
+    --radius: 10px;
   }
-  return sheet;
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: 'Malgun Gothic', '맑은 고딕', Arial, sans-serif;
+    background: #eef2f7;
+    color: #222;
+    min-height: 100vh;
+  }
+
+  /* ── 로그인 ── */
+  #loginScreen {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 100vh;
+    background: linear-gradient(135deg, #1a3c6e 0%, #2a5298 60%, #4a90d9 100%);
+  }
+  .login-box {
+    background: #fff; border-radius: 16px; padding: 44px 38px 36px;
+    width: 360px; box-shadow: 0 8px 40px rgba(0,0,0,0.22); text-align: center;
+  }
+  .login-logo {
+    width: 60px; height: 60px; background: var(--primary); border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 16px; font-size: 26px;
+  }
+  .login-box h2 { color: var(--primary); font-size: 1.3rem; margin-bottom: 6px; }
+  .login-box p  { color: var(--gray); font-size: 0.83rem; margin-bottom: 24px; }
+  .login-role-tabs {
+    display: flex; border: 2px solid var(--primary);
+    border-radius: 8px; overflow: hidden; margin-bottom: 20px;
+  }
+  .login-role-tabs button {
+    flex: 1; padding: 10px; border: none; background: #fff;
+    color: var(--primary); font-size: 0.88rem; cursor: pointer;
+    font-weight: 600; transition: all 0.2s;
+  }
+  .login-role-tabs button.active { background: var(--primary); color: #fff; }
+  .form-group { text-align: left; margin-bottom: 14px; }
+  .form-group label {
+    display: block; font-size: 0.8rem; font-weight: 700;
+    color: var(--primary); margin-bottom: 5px;
+  }
+  .form-group input, .form-group select {
+    width: 100%; padding: 10px 13px; border: 1.5px solid var(--border);
+    border-radius: 7px; font-size: 0.93rem; outline: none;
+    transition: border 0.2s; font-family: inherit;
+  }
+  .form-group input:focus, .form-group select:focus { border-color: var(--primary-light); }
+  .btn-primary {
+    width: 100%; padding: 12px; background: var(--primary); color: #fff;
+    border: none; border-radius: 8px; font-size: 1rem; font-weight: 700;
+    cursor: pointer; transition: background 0.2s; margin-top: 4px;
+  }
+  .btn-primary:hover { background: var(--primary-light); }
+  .login-hint {
+    margin-top: 16px; font-size: 0.77rem; color: var(--gray);
+    background: var(--gray-light); border-radius: 7px;
+    padding: 9px 13px; text-align: left; line-height: 1.7;
+  }
+
+  /* ── 앱 ── */
+  #appScreen { display: none; }
+  .topbar {
+    background: var(--primary); color: #fff; padding: 0 28px;
+    height: 54px; display: flex; align-items: center;
+    justify-content: space-between;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    position: sticky; top: 0; z-index: 100;
+  }
+  .topbar-left { display: flex; align-items: center; gap: 12px; }
+  .topbar-logo {
+    width: 32px; height: 32px; background: rgba(255,255,255,0.18);
+    border-radius: 50%; display: flex; align-items: center;
+    justify-content: center; font-size: 16px;
+  }
+  .topbar h1 { font-size: 1rem; font-weight: 700; }
+  .topbar-sub { font-size: 0.78rem; opacity: 0.75; margin-left: 4px; }
+  .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .user-badge {
+    background: rgba(255,255,255,0.18); border-radius: 20px;
+    padding: 4px 13px; font-size: 0.8rem; font-weight: 600;
+  }
+  .role-badge {
+    font-size: 0.7rem; padding: 3px 9px; border-radius: 12px; font-weight: 700;
+  }
+  .role-badge.requester { background: #4a90d9; color: #fff; }
+  .role-badge.reviewer  { background: #f0a500; color: #fff; }
+  .btn-logout {
+    background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.35);
+    color: #fff; padding: 5px 13px; border-radius: 7px;
+    font-size: 0.8rem; cursor: pointer; transition: background 0.2s;
+  }
+  .btn-logout:hover { background: rgba(255,255,255,0.28); }
+
+  /* ── 메인 레이아웃 ── */
+  .main-wrap {
+    display: grid;
+    grid-template-columns: 320px 1fr;
+    gap: 20px;
+    max-width: 1300px;
+    margin: 0 auto;
+    padding: 22px 20px;
+  }
+
+  /* ── 카드 ── */
+  .card {
+    background: #fff; border-radius: var(--radius);
+    box-shadow: var(--shadow); padding: 22px;
+  }
+  .card-title {
+    font-size: 1rem; font-weight: 700; color: var(--primary);
+    margin-bottom: 16px; padding-bottom: 11px;
+    border-bottom: 2px solid var(--accent);
+    display: flex; align-items: center; gap: 7px;
+  }
+
+  /* ── 통계 ── */
+  .stats-row {
+    display: grid; grid-template-columns: repeat(4,1fr);
+    gap: 12px; margin-bottom: 16px;
+  }
+  .stat-card {
+    background: #fff; border-radius: 9px; box-shadow: var(--shadow);
+    padding: 14px 16px; display: flex; align-items: center; gap: 12px;
+  }
+  .stat-icon {
+    width: 40px; height: 40px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px; flex-shrink: 0;
+  }
+  .stat-icon.blue   { background: #e8f0fe; }
+  .stat-icon.yellow { background: #fff8e1; }
+  .stat-icon.green  { background: #e8f5e9; }
+  .stat-icon.red    { background: #fce4ec; }
+  .stat-info p  { font-size: 0.72rem; color: var(--gray); margin-bottom: 2px; }
+  .stat-info h3 { font-size: 1.15rem; font-weight: 800; color: var(--primary); }
+
+  /* ── 신청 폼 ── */
+  .form-group-sm { margin-bottom: 12px; }
+  .form-group-sm label {
+    display: block; font-size: 0.78rem; font-weight: 700;
+    color: var(--primary); margin-bottom: 4px;
+  }
+  .form-group-sm input,
+  .form-group-sm select {
+    width: 100%; padding: 8px 11px; border: 1.5px solid var(--border);
+    border-radius: 7px; font-size: 0.9rem; outline: none;
+    transition: border 0.2s; font-family: inherit;
+  }
+  .form-group-sm input:focus,
+  .form-group-sm select:focus { border-color: var(--primary-light); }
+  .required-star { color: #e53935; margin-left: 2px; }
+
+  .btn-submit {
+    width: 100%; padding: 11px; background: var(--primary); color: #fff;
+    border: none; border-radius: 8px; font-size: 0.95rem; font-weight: 700;
+    cursor: pointer; transition: background 0.2s; margin-top: 6px;
+  }
+  .btn-submit:hover { background: var(--primary-light); }
+  .btn-reset {
+    width: 100%; padding: 8px; background: #fff; color: var(--gray);
+    border: 1.5px solid var(--border); border-radius: 8px;
+    font-size: 0.85rem; font-weight: 600; cursor: pointer;
+    transition: all 0.2s; margin-top: 6px;
+  }
+  .btn-reset:hover { border-color: var(--gray); }
+
+  .form-note {
+    font-size: 0.75rem; color: var(--primary); margin-top: 10px;
+    background: var(--accent); border-radius: 6px; padding: 8px 10px;
+    line-height: 1.6;
+  }
+
+  /* ── 필터 바 ── */
+  .filter-bar {
+    display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; align-items: center;
+  }
+  .filter-bar input, .filter-bar select {
+    padding: 7px 11px; border: 1.5px solid var(--border);
+    border-radius: 7px; font-size: 0.83rem; font-family: inherit;
+    outline: none; transition: border 0.2s;
+  }
+  .filter-bar input:focus, .filter-bar select:focus { border-color: var(--primary-light); }
+  .filter-bar input { flex: 1; min-width: 140px; }
+  .btn-csv {
+    padding: 7px 14px; background: var(--success); color: #fff;
+    border: none; border-radius: 7px; font-size: 0.8rem;
+    font-weight: 700; cursor: pointer; white-space: nowrap;
+  }
+  .btn-csv:hover { opacity: 0.85; }
+  .btn-clear-all {
+    padding: 7px 14px; background: var(--danger-bg); color: var(--danger);
+    border: 1px solid var(--danger); border-radius: 7px; font-size: 0.8rem;
+    font-weight: 700; cursor: pointer; white-space: nowrap;
+  }
+  .btn-clear-all:hover { background: var(--danger); color: #fff; }
+
+  /* ── 테이블 ── */
+  .table-wrap { overflow-x: auto; border-radius: 8px; border: 1px solid var(--border); }
+  table { width: 100%; border-collapse: collapse; font-size: 0.82rem; }
+  thead th {
+    background: var(--primary); color: #fff; padding: 10px 11px;
+    text-align: left; font-weight: 700; white-space: nowrap;
+  }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.15s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: var(--accent); }
+  tbody td { padding: 9px 11px; vertical-align: middle; }
+  .amount-cell { font-weight: 700; color: var(--primary); text-align: right; }
+
+  /* ── 상태 뱃지 ── */
+  .status-badge {
+    display: inline-block; padding: 2px 9px; border-radius: 11px;
+    font-size: 0.74rem; font-weight: 700; white-space: nowrap;
+  }
+  .status-pending  { background: var(--warning-bg); color: var(--warning); }
+  .status-approved { background: var(--success-bg); color: var(--success); }
+  .status-rejected { background: var(--danger-bg);  color: var(--danger); }
+
+  /* ── 검토 버튼 ── */
+  .btn-approve {
+    padding: 4px 10px; background: var(--success); color: #fff;
+    border: none; border-radius: 5px; font-size: 0.76rem;
+    font-weight: 700; cursor: pointer; margin-right: 4px; transition: opacity 0.2s;
+  }
+  .btn-reject {
+    padding: 4px 10px; background: var(--danger); color: #fff;
+    border: none; border-radius: 5px; font-size: 0.76rem;
+    font-weight: 700; cursor: pointer; transition: opacity 0.2s;
+  }
+  .btn-approve:hover, .btn-reject:hover { opacity: 0.82; }
+  .btn-detail {
+    padding: 4px 10px; background: var(--accent); color: var(--primary);
+    border: 1px solid #c5d8f8; border-radius: 5px; font-size: 0.76rem;
+    font-weight: 600; cursor: pointer; transition: background 0.2s;
+  }
+  .btn-detail:hover { background: #d0e4ff; }
+
+  /* ── 모달 ── */
+  .modal-overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(0,0,0,0.45); z-index: 999;
+    align-items: center; justify-content: center;
+  }
+  .modal-overlay.open { display: flex; }
+  .modal {
+    background: #fff; border-radius: 14px; padding: 28px;
+    width: 480px; max-width: 95vw;
+    box-shadow: 0 8px 40px rgba(0,0,0,0.22);
+    position: relative; max-height: 90vh; overflow-y: auto;
+  }
+  .modal-title {
+    font-size: 1rem; font-weight: 700; color: var(--primary);
+    margin-bottom: 18px; padding-bottom: 11px;
+    border-bottom: 2px solid var(--accent);
+  }
+  .modal-close {
+    position: absolute; top: 16px; right: 18px;
+    background: none; border: none; font-size: 1.3rem;
+    cursor: pointer; color: var(--gray); line-height: 1;
+  }
+  .detail-row { display: flex; margin-bottom: 10px; font-size: 0.88rem; }
+  .detail-label { width: 100px; flex-shrink: 0; font-weight: 700; color: var(--gray); }
+  .detail-value { color: #222; flex: 1; }
+  .modal-actions { display: flex; gap: 9px; margin-top: 20px; justify-content: flex-end; }
+  .review-comment { margin-top: 14px; }
+  .review-comment label {
+    display: block; font-size: 0.8rem; font-weight: 700;
+    color: var(--primary); margin-bottom: 5px;
+  }
+  .review-comment textarea {
+    width: 100%; padding: 8px 11px; border: 1.5px solid var(--border);
+    border-radius: 7px; font-size: 0.86rem; font-family: inherit;
+    resize: vertical; min-height: 60px; outline: none;
+  }
+  .section-divider { border: none; border-top: 1px solid var(--border); margin: 16px 0; }
+  .btn-secondary {
+    padding: 8px 18px; background: #fff; color: var(--gray);
+    border: 1.5px solid var(--border); border-radius: 7px;
+    font-size: 0.88rem; font-weight: 600; cursor: pointer;
+  }
+
+  /* ── 토스트 ── */
+  #toast {
+    position: fixed; bottom: 26px; right: 26px; background: #222; color: #fff;
+    padding: 11px 20px; border-radius: 9px; font-size: 0.88rem; font-weight: 600;
+    box-shadow: 0 4px 18px rgba(0,0,0,0.22); z-index: 9999;
+    opacity: 0; transform: translateY(14px); transition: all 0.3s; pointer-events: none;
+  }
+  #toast.show { opacity: 1; transform: translateY(0); }
+  #toast.success { background: var(--success); }
+  #toast.error   { background: var(--danger); }
+  #toast.info    { background: var(--primary); }
+
+  /* ── 빈 상태 ── */
+  .empty-state { text-align: center; padding: 40px 20px; color: var(--gray); }
+  .empty-state .empty-icon { font-size: 2.5rem; margin-bottom: 10px; }
+  .empty-state p { font-size: 0.9rem; }
+
+  /* ── 반응형 ── */
+  @media (max-width: 900px) {
+    .main-wrap { grid-template-columns: 1fr; }
+    .stats-row { grid-template-columns: 1fr 1fr; }
+  }
+  @media (max-width: 480px) {
+    .stats-row { grid-template-columns: 1fr 1fr; }
+    .login-box { padding: 30px 18px; width: 95vw; }
+  }
+
+  /* ── 검토자 전용 패널 ── */
+  .reviewer-only { display: none; }
+
+  /* ── 탭 (검토자용) ── */
+  .tab-nav {
+    background: #fff; border-bottom: 2px solid var(--border);
+    display: flex; padding: 0 28px; gap: 4px;
+  }
+  .tab-btn {
+    padding: 12px 20px; border: none; background: none;
+    font-size: 0.88rem; font-weight: 600; color: var(--gray);
+    cursor: pointer; border-bottom: 3px solid transparent;
+    margin-bottom: -2px; transition: all 0.2s;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .tab-btn.active { color: var(--primary); border-bottom-color: var(--primary); }
+  .tab-btn:hover:not(.active) { color: var(--primary-light); }
+  .badge-count {
+    background: #e53935; color: #fff; border-radius: 10px;
+    font-size: 0.68rem; padding: 1px 6px; font-weight: 700;
+  }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* ── 캘린더 ── */
+  .cal-nav { display: flex; align-items: center; gap: 14px; margin-bottom: 16px; }
+  .cal-nav span { font-size: 1rem; font-weight: 700; color: var(--primary); min-width: 110px; text-align: center; }
+</style>
+</head>
+<body>
+<!-- 로그인 -->
+<div id="loginScreen">
+<div class="login-box">
+<div class="login-logo">🏦</div>
+<h2>예외 지급 관리 시스템</h2>
+<p>역할을 선택하고 로그인하세요</p>
+<div class="login-role-tabs">
+<button class="active" onclick="selectRole('requester',this)">📋 신청 담당자</button>
+<button onclick="selectRole('reviewer',this)">✅ 검토자 (회계팀)</button>
+</div>
+<div class="form-group">
+<label>담당자 이름</label>
+<input id="loginName" onkeydown="if(event.key==='Enter')doLogin()" placeholder="예: 김범근" type="text"/>
+</div>
+<div class="form-group">
+<label>부서</label>
+<input id="loginDept" onkeydown="if(event.key==='Enter')doLogin()" placeholder="예: 구매팀, 영업팀" type="text"/>
+</div>
+<div class="form-group" id="reviewerPwGroup" style="display:none;">
+<label>비밀번호</label>
+<input id="loginPw" onkeydown="if(event.key==='Enter')doLogin()" placeholder="검토자 비밀번호" type="password"/>
+</div>
+<button class="btn-primary" onclick="doLogin()">로그인</button>
+<div class="login-hint" id="loginHint" style="display:none;">
+      🔑 검토자(회계팀) 비밀번호: <strong>admin</strong>
+</div>
+</div>
+</div>
+<!-- 메인 앱 -->
+<div id="appScreen" style="display:none;">
+<!-- 상단 바 -->
+<div class="topbar">
+<div class="topbar-left">
+<div class="topbar-logo">🏦</div>
+<h1>예외 지급 관리</h1>
+<span class="topbar-sub">신청 → 재무팀 검토 → 승인 / 반려</span>
+</div>
+<div class="topbar-right">
+<span class="user-badge" id="topUserName"></span>
+<span class="role-badge" id="topRoleBadge"></span>
+<button class="btn-logout" onclick="doLogout()">로그아웃</button>
+</div>
+</div>
+<!-- 공통 탭 네비 -->
+<div class="tab-nav" id="commonTabNav" style="display:none;">
+<button class="tab-btn active" id="tabBtn-main" onclick="switchTab('main')">📋 신청 현황</button>
+<button class="tab-btn" id="tabBtn-calendar" onclick="switchTab('calendar')">📅 지급대장</button>
+</div>
+<!-- ===== 담당자 화면 ===== -->
+<div id="requesterView" style="display:none;">
+<!-- 담당자 탭: 신청현황 -->
+<div class="tab-panel active" id="req-tab-main">
+<div class="main-wrap">
+<!-- 좌측: 신청 폼 -->
+<div>
+<div class="card">
+<div class="card-title">📝 예외 지급 신청</div>
+<div class="form-group-sm">
+<label>담당자 <span class="required-star">*</span></label>
+<input id="f_name" readonly="" style="background:#f8f9fa;color:#555;" type="text"/>
+</div>
+<div class="form-group-sm">
+<label>구분 <span class="required-star">*</span></label>
+<select id="f_category">
+<option value="">선택</option>
+<option>계약</option>
+<option>전략</option>
+<option>중개</option>
+<option>기타</option>
+</select>
+</div>
+<div class="form-group-sm">
+<label>품목 <span class="required-star">*</span></label>
+<input id="f_item" placeholder="예: 냉동고등어 / 식자재 / 용역" type="text"/>
+</div>
+<div class="form-group-sm">
+<label>지급일 <span class="required-star">*</span></label>
+<input id="f_paydate" type="date"/>
+</div>
+<div class="form-group-sm">
+<label>구매처 <span class="required-star">*</span></label>
+<input id="f_vendor" placeholder="예: SPG GFS" type="text"/>
+</div>
+<div class="form-group-sm">
+<label>금액 (원) <span class="required-star">*</span></label>
+<input autocomplete="off" id="f_amount_display" oninput="formatAmountInput(this)" placeholder="예: 1,500,000" type="text"/>
+<input id="f_amount" type="hidden"/>
+</div>
+<button class="btn-submit" onclick="submitRequest()">📤 신청 등록</button>
+<button class="btn-reset" onclick="resetForm()">초기화</button>
+<div class="form-note">
+              ※ 예외적인 경우에만 신청하세요.<br/>
+              신청 후 재무팀에서 검토 후 승인/반려 처리됩니다.
+            </div>
+</div>
+</div>
+<!-- 우측: 내 신청 목록 -->
+<div>
+<div class="stats-row" id="myStats"></div>
+<div class="card">
+<div class="card-title">📋 신청 현황</div>
+<div class="filter-bar">
+<select id="myMonthFilter" onchange="renderMyList()"><option value="">전체 월</option></select>
+<select id="myStatusFilter" onchange="renderMyList()">
+<option value="">전체 상태</option>
+<option value="대기중">대기중</option>
+<option value="승인">승인</option>
+<option value="반려">반려</option>
+</select>
+<input id="mySearch" oninput="renderMyList()" placeholder="담당자/구매처 검색" type="text"/>
+<button class="btn-csv" onclick="downloadCSV()">CSV 다운로드</button>
+</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>No.</th><th>신청일시</th><th>담당자</th><th>구분</th><th>품목</th>
+<th>지급일</th><th>구매처</th><th style="text-align:right">금액(원)</th>
+<th>상태</th><th>검토자</th><th>검토의견</th><th>상세</th>
+</tr>
+</thead>
+<tbody id="myListBody"></tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+</div>
+<!-- 담당자 탭: 지급대장 달력 -->
+<div class="tab-panel" id="req-tab-calendar">
+<div style="max-width:1100px;margin:0 auto;padding:22px 20px;">
+<div class="card">
+<div class="card-title">📅 지급대장</div>
+<div class="cal-nav">
+<button class="btn-secondary" onclick="changeMonth(-1)">◀ 이전</button>
+<span id="calTitle"></span>
+<button class="btn-secondary" onclick="changeMonth(1)">다음 ▶</button>
+</div>
+<div id="calSummary" style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap;"></div>
+<div id="calGrid"></div>
+<div style="display:flex;gap:16px;margin-top:12px;font-size:0.8rem;flex-wrap:wrap;">
+<span><span style="display:inline-block;width:11px;height:11px;background:var(--warning-bg);border:1px solid #f0a500;border-radius:3px;margin-right:4px;"></span>대기중</span>
+<span><span style="display:inline-block;width:11px;height:11px;background:var(--success-bg);border:1px solid var(--success);border-radius:3px;margin-right:4px;"></span>승인</span>
+<span><span style="display:inline-block;width:11px;height:11px;background:var(--danger-bg);border:1px solid var(--danger);border-radius:3px;margin-right:4px;"></span>반려</span>
+</div>
+</div>
+</div>
+</div>
+</div><!-- /requesterView -->
+<!-- ===== 검토자 화면 ===== -->
+<div id="reviewerView" style="display:none;">
+<!-- 검토자 탭: 신청현황 -->
+<div class="tab-panel active" id="tab-main">
+<div style="max-width:1300px;margin:0 auto;padding:22px 20px;">
+<div class="stats-row" id="reviewStats"></div>
+<div class="card">
+<div class="card-title">🔍 지급 신청 검토</div>
+<div class="filter-bar">
+<select id="rvMonthFilter" onchange="renderReviewList()"><option value="">전체 월</option></select>
+<select id="rvStatusFilter" onchange="renderReviewList()">
+<option value="">전체 상태</option>
+<option value="대기중">대기중</option>
+<option value="승인">승인</option>
+<option value="반려">반려</option>
+</select>
+<input id="rvSearch" oninput="renderReviewList()" placeholder="담당자/구매처 검색" type="text"/>
+<button class="btn-csv" onclick="downloadCSV()">CSV 다운로드</button>
+<button class="btn-clear-all" onclick="clearAllData()">전체 초기화</button>
+</div>
+<div class="table-wrap">
+<table>
+<thead>
+<tr>
+<th>No.</th><th>신청일시</th><th>담당자</th><th>구분</th><th>품목</th>
+<th>지급일</th><th>구매처</th><th style="text-align:right">금액(원)</th>
+<th>상태</th><th>검토자</th><th>검토의견</th><th>처리</th>
+</tr>
+</thead>
+<tbody id="reviewListBody"></tbody>
+</table>
+</div>
+</div>
+</div>
+</div>
+<!-- 검토자 탭: 지급대장 달력 -->
+<div class="tab-panel" id="tab-calendar">
+<div style="max-width:1100px;margin:0 auto;padding:22px 20px;">
+<div class="card">
+<div class="card-title">📅 지급대장</div>
+<div class="cal-nav">
+<button class="btn-secondary" onclick="changeMonth(-1)">◀ 이전</button>
+<span id="calTitleRv"></span>
+<button class="btn-secondary" onclick="changeMonth(1)">다음 ▶</button>
+</div>
+<div id="calSummaryRv" style="display:flex;gap:12px;margin-bottom:14px;flex-wrap:wrap;"></div>
+<div id="calGridRv"></div>
+<div style="display:flex;gap:16px;margin-top:12px;font-size:0.8rem;flex-wrap:wrap;">
+<span><span style="display:inline-block;width:11px;height:11px;background:var(--warning-bg);border:1px solid #f0a500;border-radius:3px;margin-right:4px;"></span>대기중</span>
+<span><span style="display:inline-block;width:11px;height:11px;background:var(--success-bg);border:1px solid var(--success);border-radius:3px;margin-right:4px;"></span>승인</span>
+<span><span style="display:inline-block;width:11px;height:11px;background:var(--danger-bg);border:1px solid var(--danger);border-radius:3px;margin-right:4px;"></span>반려</span>
+</div>
+</div>
+</div>
+</div>
+</div><!-- /reviewerView -->
+</div><!-- /appScreen -->
+<!-- 상세/검토 모달 -->
+<div class="modal-overlay" id="detailModal">
+<div class="modal">
+<button class="modal-close" onclick="closeModal('detailModal')">✕</button>
+<div class="modal-title">📄 지급 신청 상세</div>
+<div id="detailContent"></div>
+<div id="reviewSection"></div>
+<div class="modal-actions" id="modalActions"></div>
+</div>
+</div>
+<div id="toast"></div>
+<script>
+
+var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw49x7IiaFxStggAf1d0EO4760deiF2n04nfgw30Rd7gwC99wOzCRXD4LdyxNFJ59SP6A/exec';
+
+var currentUser = null;
+var currentRole = 'requester';
+var requests    = [];
+var nextId      = 1;
+var calYear, calMonth;
+
+/* ── 로그인 ── */
+function selectRole(role, btn) {
+  currentRole = role;
+  var btns = document.querySelectorAll('.login-role-tabs button');
+  for (var i=0; i<btns.length; i++) btns[i].classList.remove('active');
+  btn.classList.add('active');
+  document.getElementById('reviewerPwGroup').style.display = role === 'reviewer' ? 'block' : 'none';
+  document.getElementById('loginHint').style.display       = role === 'reviewer' ? 'block' : 'none';
 }
 
-function toDateStr(val) {
-  if (!val) return '';
-  if (typeof val === 'string') return val.slice(0, 10);
-  var d = new Date(val);
-  if (isNaN(d.getTime())) return String(val);
-  var m = d.getMonth() + 1;
-  var day = d.getDate();
-  return d.getFullYear() + '-' + (m < 10 ? '0' + m : '' + m) + '-' + (day < 10 ? '0' + day : '' + day);
-}
-
-function makeOutput(obj, callback) {
-  var json = JSON.stringify(obj);
-  if (callback) {
-    return ContentService.createTextOutput(callback + '(' + json + ')').setMimeType(ContentService.MimeType.JAVASCRIPT);
-  }
-  return ContentService.createTextOutput(json).setMimeType(ContentService.MimeType.JSON);
-}
-
-function handleGetAll(callback) {
-  var sheet = getSheet();
-  var lastRow = sheet.getLastRow();
-  if (lastRow <= 1) {
-    return makeOutput({result: 'success', requests: []}, callback);
-  }
-  var data = sheet.getRange(2, 1, lastRow - 1, 13).getValues();
-  var list = [];
-  for (var i = 0; i < data.length; i++) {
-    var r = data[i];
-    if (r[0] === '') continue;
-    list.push({
-      id:          r[0],
-      submittedAt: String(r[1]),
-      requester:   r[2],
-      dept:        r[3],
-      category:    r[4],
-      item:        r[5],
-      paydate:     toDateStr(r[6]),
-      vendor:      r[7],
-      amount:      Number(r[8]),
-      status:      r[9],
-      reviewedBy:  r[10],
-      reviewedAt:  r[11] ? toDateStr(r[11]) : '',
-      comment:     r[12]
-    });
-  }
-  return makeOutput({result: 'success', requests: list}, callback);
-}
-
-function handleAdd(p, callback) {
-  var sheet = getSheet();
-  var lastRow = sheet.getLastRow();
-  var newId = 1;
-  if (lastRow > 1) {
-    newId = Number(sheet.getRange(lastRow, 1).getValue()) + 1;
-  }
-  var now = new Date();
-  var hh  = now.getHours()   < 10 ? '0' + now.getHours()   : '' + now.getHours();
-  var mm  = now.getMinutes() < 10 ? '0' + now.getMinutes() : '' + now.getMinutes();
-  var submittedAt = now.getFullYear() + '-' +
-    (now.getMonth()+1 < 10 ? '0'+(now.getMonth()+1) : ''+(now.getMonth()+1)) + '-' +
-    (now.getDate() < 10 ? '0'+now.getDate() : ''+now.getDate()) + ' ' + hh + ':' + mm;
-
-  var row = [
-    newId,
-    submittedAt,
-    p.requester  || '',
-    p.dept       || '',
-    p.category   || '',
-    p.item       || '',
-    p.paydate    || '',
-    p.vendor     || '',
-    Number(p.amount) || 0,
-    '대기중',
-    '', '', ''
-  ];
-  sheet.appendRow(row);
-  var nr = sheet.getLastRow();
-  sheet.getRange(nr, 9).setNumberFormat('#,##0');
-  sheet.getRange(nr, 1, 1, 13).setBackground('#fff3cd');
-  return makeOutput({result: 'success', id: newId}, callback);
-}
-
-function handleReview(p, callback) {
-  var sheet = getSheet();
-  var lastRow = sheet.getLastRow();
-  if (lastRow <= 1) {
-    return makeOutput({result: 'error', message: '데이터 없음'}, callback);
-  }
-  var ids = sheet.getRange(2, 1, lastRow - 1, 1).getValues();
-  var targetRow = -1;
-  for (var i = 0; i < ids.length; i++) {
-    if (Number(ids[i][0]) === Number(p.id)) {
-      targetRow = i + 2;
-      break;
+function doLogin() {
+  var name = document.getElementById('loginName').value.trim();
+  var dept = document.getElementById('loginDept').value.trim();
+  if (!name) { showToast('이름을 입력하세요.', 'error'); return; }
+  if (!dept) { showToast('부서를 입력하세요.', 'error'); return; }
+  if (currentRole === 'reviewer') {
+    if (document.getElementById('loginPw').value !== 'admin') {
+      showToast('비밀번호가 올바르지 않습니다.', 'error'); return;
     }
   }
-  if (targetRow === -1) {
-    return makeOutput({result: 'error', message: '신청을 찾을 수 없습니다'}, callback);
+  currentUser = { name: name, dept: dept, role: currentRole };
+  initApp();
+}
+
+function doLogout() {
+  currentUser = null;
+  document.getElementById('appScreen').style.display  = 'none';
+  document.getElementById('loginScreen').style.display = 'flex';
+  document.getElementById('loginPw').value   = '';
+  document.getElementById('loginName').value = '';
+  document.getElementById('loginDept').value = '';
+  currentRole = 'requester';
+  var btns = document.querySelectorAll('.login-role-tabs button');
+  for (var i=0; i<btns.length; i++) btns[i].classList.toggle('active', i===0);
+  document.getElementById('reviewerPwGroup').style.display = 'none';
+  document.getElementById('loginHint').style.display       = 'none';
+}
+
+/* ── 앱 초기화 ── */
+function initApp() {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('appScreen').style.display   = 'block';
+  document.getElementById('topUserName').textContent   = currentUser.name + ' (' + currentUser.dept + ')';
+  var rb = document.getElementById('topRoleBadge');
+  if (currentUser.role === 'reviewer') {
+    rb.textContent = '검토자'; rb.className = 'role-badge reviewer';
+    document.getElementById('reviewerView').style.display  = 'block';
+    document.getElementById('requesterView').style.display = 'none';
+    document.getElementById('commonTabNav').style.display  = 'flex';
+  } else {
+    rb.textContent = '신청 담당자'; rb.className = 'role-badge requester';
+    document.getElementById('requesterView').style.display = 'block';
+    document.getElementById('reviewerView').style.display  = 'none';
+    document.getElementById('commonTabNav').style.display  = 'flex';
+    document.getElementById('f_name').value = currentUser.name;
   }
-  var today = new Date();
-  var reviewedAt = today.getFullYear() + '-' +
-    (today.getMonth()+1 < 10 ? '0'+(today.getMonth()+1) : ''+(today.getMonth()+1)) + '-' +
-    (today.getDate() < 10 ? '0'+today.getDate() : ''+today.getDate());
-
-  sheet.getRange(targetRow, 10).setValue(p.status);
-  sheet.getRange(targetRow, 11).setValue(p.reviewedBy || '');
-  sheet.getRange(targetRow, 12).setValue(reviewedAt);
-  sheet.getRange(targetRow, 13).setValue(p.comment || '');
-  var bg = '#fff3cd';
-  if (p.status === '승인') bg = '#d4edda';
-  if (p.status === '반려') bg = '#f8d7da';
-  sheet.getRange(targetRow, 1, 1, 13).setBackground(bg);
-  return makeOutput({result: 'success'}, callback);
+  setDefaultDate();
+  var now = new Date();
+  calYear = now.getFullYear(); calMonth = now.getMonth();
+  loadData();
 }
 
-function handleClearAll(callback) {
-  var sheet = getSheet();
-  var lastRow = sheet.getLastRow();
-  if (lastRow > 1) {
-    sheet.deleteRows(2, lastRow - 1);
+/* ── JSONP ── */
+function jsonpRequest(url, callback) {
+  var cbName = 'cb_' + Date.now() + '_' + Math.floor(Math.random()*99999);
+  var fullUrl = url + '&callback=' + cbName;
+  var done = false;
+  window[cbName] = function(data) {
+    if (done) return;
+    done = true;
+    try { delete window[cbName]; } catch(e) {}
+    var el = document.getElementById(cbName);
+    if (el) el.parentNode.removeChild(el);
+    callback(data);
+  };
+  var s = document.createElement('script');
+  s.id  = cbName;
+  s.src = fullUrl;
+  s.onerror = function() {
+    if (done) return;
+    done = true;
+    try { delete window[cbName]; } catch(e) {}
+    var el = document.getElementById(cbName);
+    if (el) el.parentNode.removeChild(el);
+    callback(null);
+  };
+  setTimeout(function() {
+    if (done) return;
+    done = true;
+    try { delete window[cbName]; } catch(e) {}
+    var el = document.getElementById(cbName);
+    if (el) el.parentNode.removeChild(el);
+    showLoadingOverlay(false);
+    showToast('❌ 서버 응답 시간 초과. 다시 시도해주세요.', 'error');
+  }, 15000);
+  document.head.appendChild(s);
+}
+
+function jsonpGet(params, callback) {
+  jsonpRequest(APPS_SCRIPT_URL + '?' + params, callback);
+}
+
+function jsonpPost(payload, callback) {
+  var cbName = 'cb_' + Date.now() + '_' + Math.floor(Math.random()*99999);
+  var done = false;
+
+  // 파라미터 조립
+  var params = [];
+  params.push('action=' + encodeURIComponent(payload.action));
+  if (payload.data) {
+    var d = payload.data;
+    if (d.id        !== undefined) params.push('id='         + encodeURIComponent(d.id));
+    if (d.requester !== undefined) params.push('requester='  + encodeURIComponent(d.requester));
+    if (d.dept      !== undefined) params.push('dept='       + encodeURIComponent(d.dept));
+    if (d.category  !== undefined) params.push('category='   + encodeURIComponent(d.category));
+    if (d.item      !== undefined) params.push('item='       + encodeURIComponent(d.item));
+    if (d.paydate   !== undefined) params.push('paydate='    + encodeURIComponent(d.paydate));
+    if (d.vendor    !== undefined) params.push('vendor='     + encodeURIComponent(d.vendor));
+    if (d.amount    !== undefined) params.push('amount='     + encodeURIComponent(d.amount));
+    if (d.status    !== undefined) params.push('status='     + encodeURIComponent(d.status));
+    if (d.reviewedBy!== undefined) params.push('reviewedBy=' + encodeURIComponent(d.reviewedBy));
+    if (d.comment   !== undefined) params.push('comment='    + encodeURIComponent(d.comment));
   }
-  return makeOutput({result: 'success'}, callback);
+  params.push('callback=' + cbName);
+  var fullUrl = APPS_SCRIPT_URL + '?' + params.join('&');
+
+  window[cbName] = function(data) {
+    if (done) return;
+    done = true;
+    try { delete window[cbName]; } catch(e) {}
+    var el = document.getElementById(cbName);
+    if (el) el.parentNode.removeChild(el);
+    callback(data);
+  };
+
+  var s = document.createElement('script');
+  s.id  = cbName;
+  s.src = fullUrl;
+  s.onerror = function() {
+    if (done) return;
+    done = true;
+    try { delete window[cbName]; } catch(e) {}
+    var el = document.getElementById(cbName);
+    if (el) el.parentNode.removeChild(el);
+    callback(null);
+  };
+  setTimeout(function() {
+    if (done) return;
+    done = true;
+    try { delete window[cbName]; } catch(e) {}
+    var el = document.getElementById(cbName);
+    if (el) el.parentNode.removeChild(el);
+    showLoadingOverlay(false);
+    showToast('❌ 서버 응답 시간 초과. 다시 시도해주세요.', 'error');
+  }, 15000);
+  document.head.appendChild(s);
 }
 
-function doGet(e) {
-  var p        = e.parameter;
-  var callback = p.callback || '';
-  var action   = p.action   || '';
-
-  if (action === 'getAll')   return handleGetAll(callback);
-  if (action === 'add')      return handleAdd(p, callback);
-  if (action === 'review')   return handleReview(p, callback);
-  if (action === 'clearAll') return handleClearAll(callback);
-
-  return makeOutput({result: 'error', message: 'unknown action'}, callback);
+/* ── 데이터 로드 ── */
+function loadData(callback) {
+  showLoadingOverlay(true);
+  jsonpGet('action=getAll', function(data) {
+    if (!data) {
+      showLoadingOverlay(false);
+      showToast('❌ 데이터 로드 실패. 연결을 확인하세요.', 'error');
+      return;
+    }
+    requests = data.requests || [];
+    if (requests.length > 0) {
+      var ids = [];
+      for (var i=0; i<requests.length; i++) ids.push(requests[i].id);
+      nextId = Math.max.apply(null, ids) + 1;
+    } else {
+      nextId = 1;
+    }
+    showLoadingOverlay(false);
+    buildMonthFilters();
+    if (currentUser.role === 'requester') { renderMyList(); renderMyStats(); renderCalendar('req'); }
+    else { renderReviewList(); renderReviewStats(); renderCalendar('rv'); }
+    if (callback) callback();
+  });
 }
 
-function doPost(e) {
-  var p        = e.parameter  || {};
-  var callback = p.callback   || '';
-  var action   = p.action     || '';
-
-  if (action === 'getAll')   return handleGetAll(callback);
-  if (action === 'add')      return handleAdd(p, callback);
-  if (action === 'review')   return handleReview(p, callback);
-  if (action === 'clearAll') return handleClearAll(callback);
-
-  return makeOutput({result: 'error', message: 'unknown action'}, callback);
+/* ── 월 필터 ── */
+function buildMonthFilters() {
+  var monthSet = {};
+  for (var i=0; i<requests.length; i++) {
+    var m = requests[i].submittedAt.slice(0,7);
+    monthSet[m] = true;
+  }
+  var months = Object.keys(monthSet).sort().reverse();
+  var opts = '<option value="">전체 월</option>';
+  for (var j=0; j<months.length; j++) opts += '<option>' + months[j] + '</option>';
+  var ids = ['myMonthFilter','rvMonthFilter'];
+  for (var k=0; k<ids.length; k++) {
+    var el = document.getElementById(ids[k]);
+    if (el) el.innerHTML = opts;
+  }
 }
+
+/* ── 공통 탭 전환 ── */
+function switchTab(id) {
+  var tabBtns = document.querySelectorAll('.tab-btn');
+  for (var i=0; i<tabBtns.length; i++) tabBtns[i].classList.remove('active');
+  document.getElementById('tabBtn-' + id).classList.add('active');
+  if (currentUser.role === 'requester') {
+    var panels = document.querySelectorAll('#requesterView .tab-panel');
+    for (var j=0; j<panels.length; j++) panels[j].classList.remove('active');
+    document.getElementById('req-tab-' + id).classList.add('active');
+    if (id === 'calendar') renderCalendar('req');
+    if (id === 'main')     loadData();
+  } else {
+    var rvPanels = document.querySelectorAll('#reviewerView .tab-panel');
+    for (var k=0; k<rvPanels.length; k++) rvPanels[k].classList.remove('active');
+    document.getElementById('tab-' + id).classList.add('active');
+    if (id === 'calendar') renderCalendar('rv');
+    if (id === 'main')     loadData();
+  }
+}
+
+/* ── 기본 날짜 ── */
+function setDefaultDate() {
+  var d = new Date();
+  d.setDate(d.getDate() + 7);
+  var y = d.getFullYear();
+  var m = d.getMonth()+1 < 10 ? '0'+(d.getMonth()+1) : ''+(d.getMonth()+1);
+  var day = d.getDate() < 10 ? '0'+d.getDate() : ''+d.getDate();
+  document.getElementById('f_paydate').value = y+'-'+m+'-'+day;
+}
+
+/* ── 금액 콤마 ── */
+function formatAmountInput(el) {
+  var raw = el.value.replace(/[^0-9]/g, '');
+  el.value = raw === '' ? '' : Number(raw).toLocaleString('ko-KR');
+  document.getElementById('f_amount').value = raw;
+}
+
+/* ── 신청 제출 ── */
+function submitRequest() {
+  var category = document.getElementById('f_category').value;
+  var item     = document.getElementById('f_item').value.trim();
+  var paydate  = document.getElementById('f_paydate').value;
+  var vendor   = document.getElementById('f_vendor').value.trim();
+  var amount   = document.getElementById('f_amount').value;
+
+  if (!category) { showToast('구분을 선택하세요.', 'error'); return; }
+  if (!item)     { showToast('품목을 입력하세요.', 'error'); return; }
+  if (!paydate)  { showToast('지급일을 선택하세요.', 'error'); return; }
+  if (!vendor)   { showToast('구매처를 입력하세요.', 'error'); return; }
+  if (!amount || Number(amount) <= 0) { showToast('올바른 금액을 입력하세요.', 'error'); return; }
+
+  var now = new Date();
+  var hh  = now.getHours()   < 10 ? '0'+now.getHours()   : ''+now.getHours();
+  var mm  = now.getMinutes() < 10 ? '0'+now.getMinutes() : ''+now.getMinutes();
+  var submittedAt = now.toISOString().slice(0,10) + ' ' + hh + ':' + mm;
+
+  var req = {
+    id: nextId++,
+    submittedAt: submittedAt,
+    requester:   currentUser.name,
+    dept:        currentUser.dept,
+    category:    category,
+    item:        item,
+    paydate:     paydate,
+    vendor:      vendor,
+    amount:      Number(amount),
+    status:      '대기중',
+    reviewedBy:  '',
+    reviewedAt:  '',
+    comment:     ''
+  };
+
+  showLoadingOverlay(true);
+  jsonpPost({ action: 'add', data: req }, function(res) {
+    showLoadingOverlay(false);
+    if (!res) { showToast('❌ 서버 연결 실패.', 'error'); return; }
+    if (res.result === 'success') {
+      requests.push(req);
+      buildMonthFilters();
+      renderMyList();
+      renderMyStats();
+      renderCalendar('req');
+      showToast('✅ 신청이 등록되었습니다.', 'success');
+      resetForm();
+    } else {
+      showToast('❌ 저장 실패: ' + (res.message || '다시 시도해주세요.'), 'error');
+    }
+  });
+}
+
+function resetForm() {
+  document.getElementById('f_category').value       = '';
+  document.getElementById('f_item').value           = '';
+  document.getElementById('f_vendor').value         = '';
+  document.getElementById('f_amount_display').value = '';
+  document.getElementById('f_amount').value         = '';
+  setDefaultDate();
+}
+
+/* ── 내 신청 목록 ── */
+function renderMyList() {
+  var search  = document.getElementById('mySearch').value.toLowerCase();
+  var statusF = document.getElementById('myStatusFilter').value;
+  var monthF  = document.getElementById('myMonthFilter').value;
+  var list = [];
+  for (var i=0; i<requests.length; i++) {
+    var r = requests[i];
+    if (search  && r.requester.toLowerCase().indexOf(search) < 0 && r.vendor.toLowerCase().indexOf(search) < 0) continue;
+    if (statusF && r.status !== statusF) continue;
+    if (monthF  && r.submittedAt.indexOf(monthF) < 0) continue;
+    list.push(r);
+  }
+  var tbody = document.getElementById('myListBody');
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="12"><div class="empty-state"><div class="empty-icon">📭</div><p>등록된 신청이 없습니다.</p></div></td></tr>';
+    return;
+  }
+  var html = '';
+  for (var j=0; j<list.length; j++) {
+    var r = list[j];
+    html += '<tr>' +
+      '<td>'+(j+1)+'</td>' +
+      '<td style="white-space:nowrap;font-size:0.78rem;">'+r.submittedAt+'</td>' +
+      '<td><strong>'+r.requester+'</strong><br><span style="font-size:0.74rem;color:var(--gray)">'+r.dept+'</span></td>' +
+      '<td>'+r.category+'</td>' +
+      '<td>'+r.item+'</td>' +
+      '<td style="white-space:nowrap;">'+r.paydate+'</td>' +
+      '<td>'+r.vendor+'</td>' +
+      '<td class="amount-cell">'+fmtAmt(r.amount)+'</td>' +
+      '<td>'+statusBadge(r.status)+'</td>' +
+      '<td style="font-size:0.78rem;">'+(r.reviewedBy||'-')+'</td>' +
+      '<td style="font-size:0.78rem;color:var(--gray);max-width:120px;">'+(r.comment||'-')+'</td>' +
+      '<td><button class="btn-detail" onclick="openDetail('+r.id+')">상세</button></td>' +
+      '</tr>';
+  }
+  tbody.innerHTML = html;
+}
+
+function renderMyStats() {
+  var total=0, pending=0, approved=0, totalAmt=0;
+  for (var i=0; i<requests.length; i++) {
+    total++;
+    if (requests[i].status==='대기중') pending++;
+    if (requests[i].status==='승인')   { approved++; totalAmt+=requests[i].amount; }
+  }
+  document.getElementById('myStats').innerHTML =
+    statCard('📋','blue','전체 신청', total+'건') +
+    statCard('⏳','yellow','검토 대기', pending+'건') +
+    statCard('✅','green','승인 완료', approved+'건') +
+    statCard('💰','blue','총 신청금액', fmtAmt(totalAmt)+'원');
+}
+
+/* ── 검토 목록 ── */
+function renderReviewList() {
+  var search  = document.getElementById('rvSearch').value.toLowerCase();
+  var statusF = document.getElementById('rvStatusFilter').value;
+  var monthF  = document.getElementById('rvMonthFilter').value;
+  var list = [];
+  for (var i=0; i<requests.length; i++) {
+    var r = requests[i];
+    if (search  && r.requester.toLowerCase().indexOf(search) < 0 && r.vendor.toLowerCase().indexOf(search) < 0) continue;
+    if (statusF && r.status !== statusF) continue;
+    if (monthF  && r.submittedAt.indexOf(monthF) < 0) continue;
+    list.push(r);
+  }
+  list.sort(function(a,b) {
+    if (a.status==='대기중' && b.status!=='대기중') return -1;
+    if (b.status==='대기중' && a.status!=='대기중') return 1;
+    return b.id - a.id;
+  });
+  var tbody = document.getElementById('reviewListBody');
+  if (list.length === 0) {
+    tbody.innerHTML = '<tr><td colspan="12"><div class="empty-state"><div class="empty-icon">📭</div><p>등록된 신청이 없습니다.</p></div></td></tr>';
+    return;
+  }
+  var html = '';
+  for (var j=0; j<list.length; j++) {
+    var r = list[j];
+    var actionBtn = r.status==='대기중'
+      ? '<button class="btn-approve" onclick="openReview('+r.id+')">검토</button>'
+      : '<button class="btn-detail" onclick="openDetail('+r.id+')">상세</button>';
+    html += '<tr>' +
+      '<td>'+(j+1)+'</td>' +
+      '<td style="white-space:nowrap;font-size:0.78rem;">'+r.submittedAt+'</td>' +
+      '<td><strong>'+r.requester+'</strong><br><span style="font-size:0.74rem;color:var(--gray)">'+r.dept+'</span></td>' +
+      '<td>'+r.category+'</td>' +
+      '<td>'+r.item+'</td>' +
+      '<td style="white-space:nowrap;">'+r.paydate+'</td>' +
+      '<td>'+r.vendor+'</td>' +
+      '<td class="amount-cell">'+fmtAmt(r.amount)+'</td>' +
+      '<td>'+statusBadge(r.status)+'</td>' +
+      '<td style="font-size:0.78rem;">'+(r.reviewedBy||'-')+'</td>' +
+      '<td style="font-size:0.78rem;color:var(--gray);max-width:120px;">'+(r.comment||'-')+'</td>' +
+      '<td>'+actionBtn+'</td>' +
+      '</tr>';
+  }
+  tbody.innerHTML = html;
+  var cnt = 0;
+  for (var k=0; k<requests.length; k++) { if (requests[k].status==='대기중') cnt++; }
+  var tabBtn = document.getElementById('tabBtn-main');
+  if (tabBtn) tabBtn.innerHTML = '📋 신청 현황' + (cnt>0 ? ' <span class="badge-count">'+cnt+'</span>' : '');
+}
+
+function renderReviewStats() {
+  var total=0, pending=0, approved=0, totalAmt=0;
+  for (var i=0; i<requests.length; i++) {
+    total++;
+    if (requests[i].status==='대기중') pending++;
+    if (requests[i].status==='승인')   { approved++; totalAmt+=requests[i].amount; }
+  }
+  document.getElementById('reviewStats').innerHTML =
+    statCard('📋','blue','전체 신청', total+'건') +
+    statCard('⏳','yellow','검토 대기', pending+'건') +
+    statCard('✅','green','승인 완료', approved+'건') +
+    statCard('💰','blue','승인 총액', fmtAmt(totalAmt)+'원');
+}
+
+/* ── 상세 모달 ── */
+function openDetail(id) {
+  var r = null;
+  for (var i=0; i<requests.length; i++) { if (requests[i].id===id) { r=requests[i]; break; } }
+  if (!r) return;
+  document.getElementById('detailContent').innerHTML =
+    '<div class="detail-row"><span class="detail-label">신청자</span><span class="detail-value">'+r.requester+' ('+r.dept+')</span></div>' +
+    '<div class="detail-row"><span class="detail-label">신청일시</span><span class="detail-value">'+r.submittedAt+'</span></div>' +
+    '<div class="detail-row"><span class="detail-label">구분</span><span class="detail-value">'+r.category+'</span></div>' +
+    '<div class="detail-row"><span class="detail-label">품목</span><span class="detail-value">'+r.item+'</span></div>' +
+    '<div class="detail-row"><span class="detail-label">지급일</span><span class="detail-value">'+r.paydate+'</span></div>' +
+    '<div class="detail-row"><span class="detail-label">구매처</span><span class="detail-value"><strong>'+r.vendor+'</strong></span></div>' +
+    '<div class="detail-row"><span class="detail-label">금액</span><span class="detail-value" style="font-weight:700;color:var(--primary)">'+fmtAmt(r.amount)+' 원</span></div>' +
+    '<hr class="section-divider">' +
+    '<div class="detail-row"><span class="detail-label">상태</span><span class="detail-value">'+statusBadge(r.status)+'</span></div>' +
+    (r.reviewedBy ?
+      '<div class="detail-row"><span class="detail-label">검토자</span><span class="detail-value">'+r.reviewedBy+'</span></div>' +
+      '<div class="detail-row"><span class="detail-label">검토일</span><span class="detail-value">'+r.reviewedAt+'</span></div>' +
+      '<div class="detail-row"><span class="detail-label">검토의견</span><span class="detail-value">'+(r.comment||'-')+'</span></div>'
+    : '');
+  document.getElementById('reviewSection').innerHTML = '';
+  document.getElementById('modalActions').innerHTML  = '<button class="btn-secondary" onclick="closeModal(\'detailModal\')">닫기</button>';
+  openModal('detailModal');
+}
+
+/* ── 검토 모달 ── */
+function openReview(id) {
+  var r = null;
+  for (var i=0; i<requests.length; i++) { if (requests[i].id===id) { r=requests[i]; break; } }
+  if (!r) return;
+  document.getElementById('detailContent').innerHTML =
+    '<div class="detail-row"><span class="detail-label">신청자</span><span class="detail-value">'+r.requester+' ('+r.dept+')</span></div>' +
+    '<div class="detail-row"><span class="detail-label">신청일시</span><span class="detail-value">'+r.submittedAt+'</span></div>' +
+    '<div class="detail-row"><span class="detail-label">구분</span><span class="detail-value">'+r.category+'</span></div>' +
+    '<div class="detail-row"><span class="detail-label">품목</span><span class="detail-value">'+r.item+'</span></div>' +
+    '<div class="detail-row"><span class="detail-label">지급일</span><span class="detail-value">'+r.paydate+'</span></div>' +
+    '<div class="detail-row"><span class="detail-label">구매처</span><span class="detail-value"><strong>'+r.vendor+'</strong></span></div>' +
+    '<div class="detail-row"><span class="detail-label">금액</span><span class="detail-value" style="font-weight:700;color:var(--primary)">'+fmtAmt(r.amount)+' 원</span></div>';
+  document.getElementById('reviewSection').innerHTML =
+    '<hr class="section-divider">' +
+    '<div class="review-comment"><label>검토 의견 (선택)</label>' +
+    '<textarea id="reviewComment" placeholder="승인/반려 사유를 입력하세요"></textarea></div>';
+  document.getElementById('modalActions').innerHTML =
+    '<button class="btn-secondary" onclick="closeModal(\'detailModal\')">취소</button>' +
+    '<button class="btn-reject"  onclick="doReview('+id+',\'반려\')">❌ 반려</button>' +
+    '<button class="btn-approve" onclick="doReview('+id+',\'승인\')">✅ 승인</button>';
+  openModal('detailModal');
+}
+
+function doReview(id, decision) {
+  var r = null;
+  for (var i=0; i<requests.length; i++) { if (requests[i].id===id) { r=requests[i]; break; } }
+  if (!r) return;
+  var comment = document.getElementById('reviewComment').value.trim();
+  var today   = new Date().toISOString().slice(0,10);
+  var updateData = { id:id, status:decision, reviewedBy:currentUser.name, reviewedAt:today, comment:comment };
+  closeModal('detailModal');
+  showLoadingOverlay(true);
+  jsonpPost({ action:'review', data:updateData }, function(res) {
+    showLoadingOverlay(false);
+    if (!res) { showToast('❌ 서버 연결 실패.', 'error'); return; }
+    if (res.result === 'success') {
+      r.status=decision; r.reviewedBy=currentUser.name; r.reviewedAt=today; r.comment=comment;
+      showToast(decision==='승인' ? '✅ 승인 처리되었습니다.' : '❌ 반려 처리되었습니다.',
+                decision==='승인' ? 'success' : 'error');
+      renderReviewList(); renderReviewStats(); renderCalendar('rv');
+    } else {
+      showToast('❌ 처리 실패: '+(res.message||'다시 시도해주세요.'), 'error');
+    }
+  });
+}
+
+/* ── CSV 다운로드 ── */
+function downloadCSV() {
+  var headers = ['No.','신청일시','담당자','부서','구분','품목','지급일','구매처','금액','상태','검토자','검토의견'];
+  var rows = [headers];
+  for (var i=0; i<requests.length; i++) {
+    var r = requests[i];
+    rows.push([i+1, r.submittedAt, r.requester, r.dept, r.category, r.item, r.paydate, r.vendor, r.amount, r.status, r.reviewedBy||'', r.comment||'']);
+  }
+  var csv = '';
+  for (var j=0; j<rows.length; j++) {
+    var cols = [];
+    for (var k=0; k<rows[j].length; k++) cols.push('"'+String(rows[j][k]).replace(/"/g,'""')+'"');
+    csv += cols.join(',') + '\n';
+  }
+  var blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  var a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = '지급신청_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+}
+
+/* ── 전체 초기화 ── */
+function clearAllData() {
+  if (!confirm('⚠️ 모든 신청 데이터를 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
+  showLoadingOverlay(true);
+  jsonpPost({ action:'clearAll' }, function(res) {
+    showLoadingOverlay(false);
+    if (!res) { showToast('❌ 서버 연결 실패.', 'error'); return; }
+    if (res.result === 'success') {
+      requests=[]; nextId=1;
+      renderReviewList(); renderReviewStats(); buildMonthFilters();
+      showToast('🗑️ 전체 데이터가 초기화되었습니다.', 'info');
+    } else {
+      showToast('❌ 초기화 실패.', 'error');
+    }
+  });
+}
+
+/* ── 캘린더 ── */
+function changeMonth(delta) {
+  calMonth += delta;
+  if (calMonth > 11) { calMonth=0; calYear++; }
+  if (calMonth < 0)  { calMonth=11; calYear--; }
+  if (currentUser && currentUser.role==='requester') renderCalendar('req');
+  else renderCalendar('rv');
+}
+
+function renderCalendar(mode) {
+  var titleId   = mode==='req' ? 'calTitle'    : 'calTitleRv';
+  var gridId    = mode==='req' ? 'calGrid'     : 'calGridRv';
+  var summaryId = mode==='req' ? 'calSummary'  : 'calSummaryRv';
+  var titleEl   = document.getElementById(titleId);
+  if (!titleEl) return;
+  titleEl.textContent = calYear+'년 '+(calMonth+1)+'월';
+
+  var firstDay = new Date(calYear, calMonth, 1).getDay();
+  var lastDate  = new Date(calYear, calMonth+1, 0).getDate();
+
+  var visible = [];
+  for (var i=0; i<requests.length; i++) {
+    var r = requests[i];
+    if (mode==='req' && r.requester!==currentUser.name) continue;
+    var d = new Date(r.paydate);
+    if (d.getFullYear()===calYear && d.getMonth()===calMonth) visible.push(r);
+  }
+
+  var byDate = {};
+  for (var j=0; j<visible.length; j++) {
+    var pd = visible[j].paydate;
+    if (!byDate[pd]) byDate[pd]=[];
+    byDate[pd].push(visible[j]);
+  }
+
+  var totalAmt=0, approvedAmt=0, pendingAmt=0;
+  for (var k=0; k<visible.length; k++) {
+    totalAmt += visible[k].amount;
+    if (visible[k].status==='승인')   approvedAmt += visible[k].amount;
+    if (visible[k].status==='대기중') pendingAmt  += visible[k].amount;
+  }
+  var summaryEl = document.getElementById(summaryId);
+  if (summaryEl) {
+    summaryEl.innerHTML =
+      '<div style="background:#e8f0fe;border-radius:8px;padding:8px 14px;font-size:0.82rem;"><span style="color:var(--gray);">전체</span> <strong style="color:var(--primary);">'+fmtAmt(totalAmt)+'원</strong> ('+visible.length+'건)</div>' +
+      '<div style="background:#d4edda;border-radius:8px;padding:8px 14px;font-size:0.82rem;"><span style="color:var(--gray);">승인</span> <strong style="color:var(--success);">'+fmtAmt(approvedAmt)+'원</strong></div>' +
+      '<div style="background:#fff3cd;border-radius:8px;padding:8px 14px;font-size:0.82rem;"><span style="color:var(--gray);">대기중</span> <strong style="color:var(--warning);">'+fmtAmt(pendingAmt)+'원</strong></div>';
+  }
+
+  var days = ['일','월','화','수','목','금','토'];
+  var html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;">';
+  for (var di=0; di<days.length; di++) {
+    var dc0 = di===0?'#e53935':di===6?'#1565c0':'#555';
+    html += '<div style="text-align:center;font-weight:700;font-size:0.78rem;color:'+dc0+';padding:7px 0;">'+days[di]+'</div>';
+  }
+  for (var bi=0; bi<firstDay; bi++) html += '<div style="min-height:80px;"></div>';
+
+  var todayStr = new Date().toISOString().split('T')[0];
+  for (var d=1; d<=lastDate; d++) {
+    var mm2 = (calMonth+1)<10?'0'+(calMonth+1):''+(calMonth+1);
+    var dd2 = d<10?'0'+d:''+d;
+    var ds  = calYear+'-'+mm2+'-'+dd2;
+    var isT = ds===todayStr;
+    var dow = (firstDay+d-1)%7;
+    var dc  = dow===0?'#e53935':dow===6?'#1565c0':'#222';
+    var items = byDate[ds]||[];
+    var dayTotal = 0;
+    for (var ti=0; ti<items.length; ti++) dayTotal += items[ti].amount;
+
+    html += '<div style="min-height:80px;border:1px solid var(--border);border-radius:6px;padding:5px;background:'+(isT?'#e8f0fe':'#fff')+'">';
+    html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">';
+    html += '<span style="font-weight:700;font-size:0.8rem;color:'+(isT?'var(--primary)':dc)+';">'+d+(isT?' ●':'')+'</span>';
+    if (dayTotal>0) html += '<span style="font-size:0.65rem;color:var(--primary);font-weight:700;">'+fmtAmt(dayTotal)+'</span>';
+    html += '</div>';
+    for (var ii=0; ii<items.length; ii++) {
+      var ri = items[ii];
+      var bg = ri.status==='승인'?'#d4edda':ri.status==='반려'?'#f8d7da':'#fff3cd';
+      var fc = ri.status==='승인'?'#1e7e34':ri.status==='반려'?'#b02a37':'#856404';
+      var vn = ri.vendor.length>5?ri.vendor.slice(0,5)+'…':ri.vendor;
+      html += '<div style="background:'+bg+';color:'+fc+';border-radius:3px;padding:2px 4px;font-size:0.67rem;font-weight:600;margin-bottom:2px;cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" onclick="openDetail('+ri.id+')" title="'+ri.vendor+' '+fmtAmt(ri.amount)+'원">'+vn+' '+fmtAmt(ri.amount)+'원</div>';
+    }
+    html += '</div>';
+  }
+  html += '</div>';
+  document.getElementById(gridId).innerHTML = html;
+}
+
+/* ── 로딩 오버레이 ── */
+function showLoadingOverlay(show) {
+  var el = document.getElementById('loadingOverlay');
+  if (!el) {
+    el = document.createElement('div');
+    el.id = 'loadingOverlay';
+    el.style.cssText = 'position:fixed;inset:0;background:rgba(255,255,255,0.75);z-index:9998;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;';
+    el.innerHTML = '<div style="width:40px;height:40px;border:4px solid #e8f0fe;border-top-color:#1a3c6e;border-radius:50%;animation:spin 0.8s linear infinite;"></div><p style="color:#1a3c6e;font-weight:700;font-size:0.9rem;">처리 중...</p>';
+    var s = document.createElement('style');
+    s.textContent = '@keyframes spin{to{transform:rotate(360deg)}}';
+    document.head.appendChild(s);
+    document.body.appendChild(el);
+  }
+  el.style.display = show ? 'flex' : 'none';
+}
+
+/* ── 유틸 ── */
+function fmtAmt(n) { return Number(n).toLocaleString('ko-KR'); }
+
+function statusBadge(s) {
+  var map  = {'대기중':'pending','승인':'approved','반려':'rejected'};
+  var icon = {'대기중':'⏳','승인':'✅','반려':'❌'};
+  return '<span class="status-badge status-'+map[s]+'">'+icon[s]+' '+s+'</span>';
+}
+
+function statCard(icon, color, label, value) {
+  return '<div class="stat-card"><div class="stat-icon '+color+'">'+icon+'</div><div class="stat-info"><p>'+label+'</p><h3>'+value+'</h3></div></div>';
+}
+
+function openModal(id)  { document.getElementById(id).classList.add('open'); }
+function closeModal(id) { document.getElementById(id).classList.remove('open'); }
+
+document.getElementById('detailModal').addEventListener('click', function(e) {
+  if (e.target===this) closeModal('detailModal');
+});
+
+function showToast(msg, type) {
+  if (!type) type = 'info';
+  var t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'show ' + type;
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function() { t.className=''; }, 3200);
+}
+
+</script>
+</body>
+</html>
