@@ -919,17 +919,43 @@ function submitRequest() {
   };
 
   showLoadingOverlay(true);
-  jsonpPost({ action: 'add', data: req }, function(res) {
-    showLoadingOverlay(false);
-    if (!res) { showToast('❌ 서버 연결 실패.', 'error'); return; }
-    if (res.result === 'success') {
-      loadData();
-      showToast('✅ 신청이 등록되었습니다.', 'success');
-      resetForm();
-    } else {
-      showToast('❌ 저장 실패: ' + (res.message || '다시 시도해주세요.'), 'error');
-    }
-  });
+  // fetch POST 방식으로 전송
+  var params = [];
+  params.push('action=add');
+  params.push('requester='  + encodeURIComponent(req.requester));
+  params.push('dept='       + encodeURIComponent(req.dept));
+  params.push('category='   + encodeURIComponent(req.category));
+  params.push('item='       + encodeURIComponent(req.item));
+  params.push('paydate='    + encodeURIComponent(req.paydate));
+  params.push('vendor='     + encodeURIComponent(req.vendor));
+  params.push('amount='     + encodeURIComponent(req.amount));
+  var fetchUrl = APPS_SCRIPT_URL + '?' + params.join('&');
+  fetch(fetchUrl)
+    .then(function(r) { return r.json(); })
+    .then(function(res) {
+      showLoadingOverlay(false);
+      if (res.result === 'success') {
+        loadData();
+        showToast('✅ 신청이 등록되었습니다.', 'success');
+        resetForm();
+      } else {
+        showToast('❌ 저장 실패: ' + (res.message || '다시 시도해주세요.'), 'error');
+      }
+    })
+    .catch(function() {
+      // fetch 실패 시 JSONP로 재시도
+      jsonpPost({ action: 'add', data: req }, function(res) {
+        showLoadingOverlay(false);
+        if (!res) { showToast('❌ 서버 연결 실패.', 'error'); return; }
+        if (res.result === 'success') {
+          loadData();
+          showToast('✅ 신청이 등록되었습니다.', 'success');
+          resetForm();
+        } else {
+          showToast('❌ 저장 실패: ' + (res.message || '다시 시도해주세요.'), 'error');
+        }
+      });
+    });
 }
 
 function resetForm() {
@@ -1121,18 +1147,41 @@ function doReview(id, decision) {
   var updateData = { id: id, status: decision, reviewedBy: currentUser.name, reviewedAt: today, comment: comment };
   closeModal('detailModal');
   showLoadingOverlay(true);
-  jsonpPost({ action: 'review', data: updateData }, function(res) {
-    showLoadingOverlay(false);
-    if (!res) { showToast('❌ 서버 연결 실패.', 'error'); return; }
-    if (res.result === 'success') {
-      r.status = decision; r.reviewedBy = currentUser.name; r.reviewedAt = today; r.comment = comment;
-      showToast(decision === '승인' ? '✅ 승인 처리되었습니다.' : '❌ 반려 처리되었습니다.',
-                decision === '승인' ? 'success' : 'error');
-      renderReviewList(); renderReviewStats(); renderCalendar('rv');
-    } else {
-      showToast('❌ 처리 실패: ' + (res.message || '다시 시도해주세요.'), 'error');
-    }
-  });
+  var rvParams = [];
+  rvParams.push('action=review');
+  rvParams.push('id='         + encodeURIComponent(id));
+  rvParams.push('status='     + encodeURIComponent(decision));
+  rvParams.push('reviewedBy=' + encodeURIComponent(currentUser.name));
+  rvParams.push('reviewedAt=' + encodeURIComponent(today));
+  rvParams.push('comment='    + encodeURIComponent(comment));
+  var rvUrl = APPS_SCRIPT_URL + '?' + rvParams.join('&');
+  fetch(rvUrl)
+    .then(function(res) { return res.json(); })
+    .then(function(res) {
+      showLoadingOverlay(false);
+      if (res.result === 'success') {
+        r.status = decision; r.reviewedBy = currentUser.name; r.reviewedAt = today; r.comment = comment;
+        showToast(decision === '승인' ? '✅ 승인 처리되었습니다.' : '❌ 반려 처리되었습니다.',
+                  decision === '승인' ? 'success' : 'error');
+        renderReviewList(); renderReviewStats(); renderCalendar('rv');
+      } else {
+        showToast('❌ 처리 실패: ' + (res.message || '다시 시도해주세요.'), 'error');
+      }
+    })
+    .catch(function() {
+      jsonpPost({ action: 'review', data: updateData }, function(res) {
+        showLoadingOverlay(false);
+        if (!res) { showToast('❌ 서버 연결 실패.', 'error'); return; }
+        if (res.result === 'success') {
+          r.status = decision; r.reviewedBy = currentUser.name; r.reviewedAt = today; r.comment = comment;
+          showToast(decision === '승인' ? '✅ 승인 처리되었습니다.' : '❌ 반려 처리되었습니다.',
+                    decision === '승인' ? 'success' : 'error');
+          renderReviewList(); renderReviewStats(); renderCalendar('rv');
+        } else {
+          showToast('❌ 처리 실패: ' + (res.message || '다시 시도해주세요.'), 'error');
+        }
+      });
+    });
 }
 
 /* ── CSV 다운로드 ── */
