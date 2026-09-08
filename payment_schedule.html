@@ -383,6 +383,26 @@
 <input id="loginPw" onkeydown="if(event.key==='Enter')doLogin()" placeholder="비밀번호 입력" type="password"/>
 </div>
 <button class="btn-primary" onclick="doLogin()">로그인</button>
+    <div style="margin-top:12px;">
+      <button onclick="showUrlSetting()" style="background:none;border:none;color:var(--gray);font-size:0.75rem;cursor:pointer;text-decoration:underline;">⚙️ 서버 URL 설정</button>
+    </div>
+    <div id="urlSettingBox" style="display:none;margin-top:10px;text-align:left;">
+      <div class="form-group">
+        <label style="font-size:0.75rem;">Apps Script URL</label>
+        <input type="text" id="urlInput" placeholder="https://script.google.com/..." style="font-size:0.75rem;">
+      </div>
+      <button onclick="saveUrl()" style="width:100%;padding:8px;background:var(--primary);color:#fff;border:none;border-radius:7px;font-size:0.82rem;cursor:pointer;">저장</button>
+    </div>
+<div style="margin-top:12px;">
+<button onclick="showUrlSetting()" style="background:none;border:none;color:var(--gray);font-size:0.75rem;cursor:pointer;text-decoration:underline;">⚙️ 서버 URL 설정</button>
+</div>
+<div id="urlSettingBox" style="display:none;margin-top:10px;text-align:left;">
+<div class="form-group">
+<label style="font-size:0.75rem;">Apps Script URL</label>
+<input id="urlInput" placeholder="https://script.google.com/..." style="font-size:0.75rem;" type="text"/>
+</div>
+<button onclick="saveUrl()" style="width:100%;padding:8px;background:var(--primary);color:#fff;border:none;border-radius:7px;font-size:0.82rem;cursor:pointer;">저장</button>
+</div>
 </div>
 </div>
 <!-- 메인 앱 -->
@@ -576,7 +596,6 @@
 <div id="toast"></div>
 <script>
 
-var APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw49x7IiaFxStggAf1d0EO4760deiF2n04nfgw30Rd7gwC99wOzCRXD4LdyxNFJ59SP6A/exec';
 
 var currentUser = null;
 var currentRole = 'requester';
@@ -585,7 +604,24 @@ var nextId      = 1;
 var calYear, calMonth;
 
 /* ── 로그인 ── */
-
+function selectRole(role, btn) {
+  currentRole = role;
+  var btns = document.querySelectorAll('.login-role-tabs button');
+  for (var i = 0; i < btns.length; i++) btns[i].classList.remove('active');
+  btn.classList.add('active');
+  document.getElementById('reviewerPwGroup').style.display = role === 'reviewer' ? 'block' : 'none';
+  if (role === 'reviewer') {
+    document.getElementById('loginDept').value = '회계팀';
+    document.getElementById('loginDept').readOnly = true;
+    document.getElementById('loginDept').style.background = '#f8f9fa';
+    document.getElementById('loginDept').style.color = '#555';
+  } else {
+    document.getElementById('loginDept').value = '';
+    document.getElementById('loginDept').readOnly = false;
+    document.getElementById('loginDept').style.background = '';
+    document.getElementById('loginDept').style.color = '';
+  }
+}
 
 function doLogin() {
   var name = document.getElementById('loginName').value.trim();
@@ -603,9 +639,18 @@ function doLogin() {
 
 function doLogout() {
   currentUser = null;
-  document.getElementById('appScreen').style.display  = 'none';
+  document.getElementById('appScreen').style.display   = 'none';
   document.getElementById('loginScreen').style.display = 'flex';
-  
+  document.getElementById('loginPw').value    = '';
+  document.getElementById('loginName').value  = '';
+  document.getElementById('loginDept').value  = '';
+  document.getElementById('loginDept').readOnly = false;
+  document.getElementById('loginDept').style.background = '';
+  document.getElementById('loginDept').style.color = '';
+  currentRole = 'requester';
+  var btns = document.querySelectorAll('.login-role-tabs button');
+  for (var i = 0; i < btns.length; i++) btns[i].classList.toggle('active', i === 0);
+  document.getElementById('reviewerPwGroup').style.display = 'none';
 }
 
 /* ── 앱 초기화 ── */
@@ -634,7 +679,7 @@ function initApp() {
 
 /* ── JSONP ── */
 function jsonpRequest(url, callback) {
-  var cbName = 'cb_' + Date.now() + '_' + Math.floor(Math.random()*99999);
+  var cbName = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 99999);
   var fullUrl = url + '&callback=' + cbName;
   var done = false;
   window[cbName] = function(data) {
@@ -673,25 +718,23 @@ function jsonpGet(params, callback) {
 }
 
 function jsonpPost(payload, callback) {
-  var cbName = 'cb_' + Date.now() + '_' + Math.floor(Math.random()*99999);
+  var cbName = 'cb_' + Date.now() + '_' + Math.floor(Math.random() * 99999);
   var done = false;
-
-  // 파라미터 조립
   var params = [];
   params.push('action=' + encodeURIComponent(payload.action));
   if (payload.data) {
     var d = payload.data;
-    if (d.id        !== undefined) params.push('id='         + encodeURIComponent(d.id));
-    if (d.requester !== undefined) params.push('requester='  + encodeURIComponent(d.requester));
-    if (d.dept      !== undefined) params.push('dept='       + encodeURIComponent(d.dept));
-    if (d.category  !== undefined) params.push('category='   + encodeURIComponent(d.category));
-    if (d.item      !== undefined) params.push('item='       + encodeURIComponent(d.item));
-    if (d.paydate   !== undefined) params.push('paydate='    + encodeURIComponent(d.paydate));
-    if (d.vendor    !== undefined) params.push('vendor='     + encodeURIComponent(d.vendor));
-    if (d.amount    !== undefined) params.push('amount='     + encodeURIComponent(d.amount));
-    if (d.status    !== undefined) params.push('status='     + encodeURIComponent(d.status));
-    if (d.reviewedBy!== undefined) params.push('reviewedBy=' + encodeURIComponent(d.reviewedBy));
-    if (d.comment   !== undefined) params.push('comment='    + encodeURIComponent(d.comment));
+    if (d.id         !== undefined) params.push('id='          + encodeURIComponent(d.id));
+    if (d.requester  !== undefined) params.push('requester='   + encodeURIComponent(d.requester));
+    if (d.dept       !== undefined) params.push('dept='        + encodeURIComponent(d.dept));
+    if (d.category   !== undefined) params.push('category='    + encodeURIComponent(d.category));
+    if (d.item       !== undefined) params.push('item='        + encodeURIComponent(d.item));
+    if (d.paydate    !== undefined) params.push('paydate='     + encodeURIComponent(d.paydate));
+    if (d.vendor     !== undefined) params.push('vendor='      + encodeURIComponent(d.vendor));
+    if (d.amount     !== undefined) params.push('amount='      + encodeURIComponent(d.amount));
+    if (d.status     !== undefined) params.push('status='      + encodeURIComponent(d.status));
+    if (d.reviewedBy !== undefined) params.push('reviewedBy='  + encodeURIComponent(d.reviewedBy));
+    if (d.comment    !== undefined) params.push('comment='     + encodeURIComponent(d.comment));
   }
   params.push('callback=' + cbName);
   var fullUrl = APPS_SCRIPT_URL + '?' + params.join('&');
@@ -704,7 +747,6 @@ function jsonpPost(payload, callback) {
     if (el) el.parentNode.removeChild(el);
     callback(data);
   };
-
   var s = document.createElement('script');
   s.id  = cbName;
   s.src = fullUrl;
@@ -729,39 +771,63 @@ function jsonpPost(payload, callback) {
 }
 
 /* ── 데이터 로드 ── */
-
+function loadData(callback) {
+  showLoadingOverlay(true);
+  jsonpGet('action=getAll', function(data) {
+    showLoadingOverlay(false);
+    if (!data || data.result !== 'success') {
+      showToast('❌ 데이터 로드 실패. 잠시 후 다시 시도해주세요.', 'error');
+      buildMonthFilters();
+      if (currentUser.role === 'requester') { renderMyList(); renderMyStats(); renderCalendar('req'); }
+      else { renderReviewList(); renderReviewStats(); renderCalendar('rv'); }
+      return;
+    }
+    requests = data.requests || [];
+    if (requests.length > 0) {
+      var ids = [];
+      for (var i = 0; i < requests.length; i++) ids.push(requests[i].id);
+      nextId = Math.max.apply(null, ids) + 1;
+    } else {
+      nextId = 1;
+    }
+    buildMonthFilters();
+    if (currentUser.role === 'requester') { renderMyList(); renderMyStats(); renderCalendar('req'); }
+    else { renderReviewList(); renderReviewStats(); renderCalendar('rv'); }
+    if (callback) callback();
+  });
+}
 
 /* ── 월 필터 ── */
 function buildMonthFilters() {
   var monthSet = {};
-  for (var i=0; i<requests.length; i++) {
-    var m = requests[i].submittedAt.slice(0,7);
+  for (var i = 0; i < requests.length; i++) {
+    var m = String(requests[i].submittedAt).slice(0, 7);
     monthSet[m] = true;
   }
   var months = Object.keys(monthSet).sort().reverse();
   var opts = '<option value="">전체 월</option>';
-  for (var j=0; j<months.length; j++) opts += '<option>' + months[j] + '</option>';
-  var ids = ['myMonthFilter','rvMonthFilter'];
-  for (var k=0; k<ids.length; k++) {
+  for (var j = 0; j < months.length; j++) opts += '<option>' + months[j] + '</option>';
+  var ids = ['myMonthFilter', 'rvMonthFilter'];
+  for (var k = 0; k < ids.length; k++) {
     var el = document.getElementById(ids[k]);
     if (el) el.innerHTML = opts;
   }
 }
 
-/* ── 공통 탭 전환 ── */
+/* ── 탭 전환 ── */
 function switchTab(id) {
   var tabBtns = document.querySelectorAll('.tab-btn');
-  for (var i=0; i<tabBtns.length; i++) tabBtns[i].classList.remove('active');
+  for (var i = 0; i < tabBtns.length; i++) tabBtns[i].classList.remove('active');
   document.getElementById('tabBtn-' + id).classList.add('active');
   if (currentUser.role === 'requester') {
     var panels = document.querySelectorAll('#requesterView .tab-panel');
-    for (var j=0; j<panels.length; j++) panels[j].classList.remove('active');
+    for (var j = 0; j < panels.length; j++) panels[j].classList.remove('active');
     document.getElementById('req-tab-' + id).classList.add('active');
     if (id === 'calendar') renderCalendar('req');
     if (id === 'main')     loadData();
   } else {
     var rvPanels = document.querySelectorAll('#reviewerView .tab-panel');
-    for (var k=0; k<rvPanels.length; k++) rvPanels[k].classList.remove('active');
+    for (var k = 0; k < rvPanels.length; k++) rvPanels[k].classList.remove('active');
     document.getElementById('tab-' + id).classList.add('active');
     if (id === 'calendar') renderCalendar('rv');
     if (id === 'main')     loadData();
@@ -773,9 +839,9 @@ function setDefaultDate() {
   var d = new Date();
   d.setDate(d.getDate() + 7);
   var y = d.getFullYear();
-  var m = d.getMonth()+1 < 10 ? '0'+(d.getMonth()+1) : ''+(d.getMonth()+1);
-  var day = d.getDate() < 10 ? '0'+d.getDate() : ''+d.getDate();
-  document.getElementById('f_paydate').value = y+'-'+m+'-'+day;
+  var m = d.getMonth() + 1 < 10 ? '0' + (d.getMonth() + 1) : '' + (d.getMonth() + 1);
+  var day = d.getDate() < 10 ? '0' + d.getDate() : '' + d.getDate();
+  document.getElementById('f_paydate').value = y + '-' + m + '-' + day;
 }
 
 /* ── 금액 콤마 ── */
@@ -799,14 +865,8 @@ function submitRequest() {
   if (!vendor)   { showToast('구매처를 입력하세요.', 'error'); return; }
   if (!amount || Number(amount) <= 0) { showToast('올바른 금액을 입력하세요.', 'error'); return; }
 
-  var now = new Date();
-  var hh  = now.getHours()   < 10 ? '0'+now.getHours()   : ''+now.getHours();
-  var mm  = now.getMinutes() < 10 ? '0'+now.getMinutes() : ''+now.getMinutes();
-  var submittedAt = now.toISOString().slice(0,10) + ' ' + hh + ':' + mm;
-
   var req = {
-    id: nextId++,
-    submittedAt: submittedAt,
+    id:          nextId++,
     requester:   currentUser.name,
     dept:        currentUser.dept,
     category:    category,
@@ -825,11 +885,7 @@ function submitRequest() {
     showLoadingOverlay(false);
     if (!res) { showToast('❌ 서버 연결 실패.', 'error'); return; }
     if (res.result === 'success') {
-      requests.push(req);
-      buildMonthFilters();
-      renderMyList();
-      renderMyStats();
-      renderCalendar('req');
+      loadData();
       showToast('✅ 신청이 등록되었습니다.', 'success');
       resetForm();
     } else {
@@ -849,141 +905,145 @@ function resetForm() {
 
 /* ── 내 신청 목록 ── */
 function renderMyList() {
-  var search  = document.getElementById('mySearch').value.toLowerCase();
-  var statusF = document.getElementById('myStatusFilter').value;
-  var monthF  = document.getElementById('myMonthFilter').value;
+  var search  = document.getElementById('mySearch') ? document.getElementById('mySearch').value.toLowerCase() : '';
+  var statusF = document.getElementById('myStatusFilter') ? document.getElementById('myStatusFilter').value : '';
+  var monthF  = document.getElementById('myMonthFilter') ? document.getElementById('myMonthFilter').value : '';
   var list = [];
-  for (var i=0; i<requests.length; i++) {
+  for (var i = 0; i < requests.length; i++) {
     var r = requests[i];
     if (search  && r.requester.toLowerCase().indexOf(search) < 0 && r.vendor.toLowerCase().indexOf(search) < 0) continue;
     if (statusF && r.status !== statusF) continue;
-    if (monthF  && r.submittedAt.indexOf(monthF) < 0) continue;
+    if (monthF  && String(r.submittedAt).indexOf(monthF) < 0) continue;
     list.push(r);
   }
   var tbody = document.getElementById('myListBody');
+  if (!tbody) return;
   if (list.length === 0) {
     tbody.innerHTML = '<tr><td colspan="12"><div class="empty-state"><div class="empty-icon">📭</div><p>등록된 신청이 없습니다.</p></div></td></tr>';
     return;
   }
   var html = '';
-  for (var j=0; j<list.length; j++) {
+  for (var j = 0; j < list.length; j++) {
     var r = list[j];
     html += '<tr>' +
-      '<td>'+(j+1)+'</td>' +
-      '<td style="white-space:nowrap;font-size:0.78rem;">'+r.submittedAt+'</td>' +
-      '<td><strong>'+r.requester+'</strong><br><span style="font-size:0.74rem;color:var(--gray)">'+r.dept+'</span></td>' +
-      '<td>'+r.category+'</td>' +
-      '<td>'+r.item+'</td>' +
-      '<td style="white-space:nowrap;">'+r.paydate+'</td>' +
-      '<td>'+r.vendor+'</td>' +
-      '<td class="amount-cell">'+fmtAmt(r.amount)+'</td>' +
-      '<td>'+statusBadge(r.status)+'</td>' +
-      '<td style="font-size:0.78rem;">'+(r.reviewedBy||'-')+'</td>' +
-      '<td style="font-size:0.78rem;color:var(--gray);max-width:120px;">'+(r.comment||'-')+'</td>' +
-      '<td><button class="btn-detail" onclick="openDetail('+r.id+')">상세</button></td>' +
+      '<td>' + (j + 1) + '</td>' +
+      '<td style="white-space:nowrap;font-size:0.78rem;">' + r.submittedAt + '</td>' +
+      '<td><strong>' + r.requester + '</strong><br><span style="font-size:0.74rem;color:var(--gray)">' + r.dept + '</span></td>' +
+      '<td>' + r.category + '</td>' +
+      '<td>' + r.item + '</td>' +
+      '<td style="white-space:nowrap;">' + r.paydate + '</td>' +
+      '<td>' + r.vendor + '</td>' +
+      '<td class="amount-cell">' + fmtAmt(r.amount) + '</td>' +
+      '<td>' + statusBadge(r.status) + '</td>' +
+      '<td style="font-size:0.78rem;">' + (r.reviewedBy || '-') + '</td>' +
+      '<td style="font-size:0.78rem;color:var(--gray);max-width:120px;">' + (r.comment || '-') + '</td>' +
+      '<td><button class="btn-detail" onclick="openDetail(' + r.id + ')">상세</button></td>' +
       '</tr>';
   }
   tbody.innerHTML = html;
 }
 
 function renderMyStats() {
-  var total=0, pending=0, approved=0, totalAmt=0;
-  for (var i=0; i<requests.length; i++) {
+  var total = 0, pending = 0, approved = 0, totalAmt = 0;
+  for (var i = 0; i < requests.length; i++) {
     total++;
-    if (requests[i].status==='대기중') pending++;
-    if (requests[i].status==='승인')   { approved++; totalAmt+=requests[i].amount; }
+    if (requests[i].status === '대기중') pending++;
+    if (requests[i].status === '승인') { approved++; totalAmt += requests[i].amount; }
   }
-  document.getElementById('myStats').innerHTML =
-    statCard('📋','blue','전체 신청', total+'건') +
-    statCard('⏳','yellow','검토 대기', pending+'건') +
-    statCard('✅','green','승인 완료', approved+'건') +
-    statCard('💰','blue','총 신청금액', fmtAmt(totalAmt)+'원');
+  var el = document.getElementById('myStats');
+  if (el) el.innerHTML =
+    statCard('📋', 'blue',   '전체 신청', total + '건') +
+    statCard('⏳', 'yellow', '검토 대기', pending + '건') +
+    statCard('✅', 'green',  '승인 완료', approved + '건') +
+    statCard('💰', 'blue',   '총 신청금액', fmtAmt(totalAmt) + '원');
 }
 
 /* ── 검토 목록 ── */
 function renderReviewList() {
-  var search  = document.getElementById('rvSearch').value.toLowerCase();
-  var statusF = document.getElementById('rvStatusFilter').value;
-  var monthF  = document.getElementById('rvMonthFilter').value;
+  var search  = document.getElementById('rvSearch') ? document.getElementById('rvSearch').value.toLowerCase() : '';
+  var statusF = document.getElementById('rvStatusFilter') ? document.getElementById('rvStatusFilter').value : '';
+  var monthF  = document.getElementById('rvMonthFilter') ? document.getElementById('rvMonthFilter').value : '';
   var list = [];
-  for (var i=0; i<requests.length; i++) {
+  for (var i = 0; i < requests.length; i++) {
     var r = requests[i];
     if (search  && r.requester.toLowerCase().indexOf(search) < 0 && r.vendor.toLowerCase().indexOf(search) < 0) continue;
     if (statusF && r.status !== statusF) continue;
-    if (monthF  && r.submittedAt.indexOf(monthF) < 0) continue;
+    if (monthF  && String(r.submittedAt).indexOf(monthF) < 0) continue;
     list.push(r);
   }
-  list.sort(function(a,b) {
-    if (a.status==='대기중' && b.status!=='대기중') return -1;
-    if (b.status==='대기중' && a.status!=='대기중') return 1;
+  list.sort(function(a, b) {
+    if (a.status === '대기중' && b.status !== '대기중') return -1;
+    if (b.status === '대기중' && a.status !== '대기중') return 1;
     return b.id - a.id;
   });
   var tbody = document.getElementById('reviewListBody');
+  if (!tbody) return;
   if (list.length === 0) {
     tbody.innerHTML = '<tr><td colspan="12"><div class="empty-state"><div class="empty-icon">📭</div><p>등록된 신청이 없습니다.</p></div></td></tr>';
     return;
   }
   var html = '';
-  for (var j=0; j<list.length; j++) {
+  for (var j = 0; j < list.length; j++) {
     var r = list[j];
-    var actionBtn = r.status==='대기중'
-      ? '<button class="btn-approve" onclick="openReview('+r.id+')">검토</button>'
-      : '<button class="btn-detail" onclick="openDetail('+r.id+')">상세</button>';
+    var actionBtn = r.status === '대기중'
+      ? '<button class="btn-approve" onclick="openReview(' + r.id + ')">검토</button>'
+      : '<button class="btn-detail" onclick="openDetail(' + r.id + ')">상세</button>';
     html += '<tr>' +
-      '<td>'+(j+1)+'</td>' +
-      '<td style="white-space:nowrap;font-size:0.78rem;">'+r.submittedAt+'</td>' +
-      '<td><strong>'+r.requester+'</strong><br><span style="font-size:0.74rem;color:var(--gray)">'+r.dept+'</span></td>' +
-      '<td>'+r.category+'</td>' +
-      '<td>'+r.item+'</td>' +
-      '<td style="white-space:nowrap;">'+r.paydate+'</td>' +
-      '<td>'+r.vendor+'</td>' +
-      '<td class="amount-cell">'+fmtAmt(r.amount)+'</td>' +
-      '<td>'+statusBadge(r.status)+'</td>' +
-      '<td style="font-size:0.78rem;">'+(r.reviewedBy||'-')+'</td>' +
-      '<td style="font-size:0.78rem;color:var(--gray);max-width:120px;">'+(r.comment||'-')+'</td>' +
-      '<td>'+actionBtn+'</td>' +
+      '<td>' + (j + 1) + '</td>' +
+      '<td style="white-space:nowrap;font-size:0.78rem;">' + r.submittedAt + '</td>' +
+      '<td><strong>' + r.requester + '</strong><br><span style="font-size:0.74rem;color:var(--gray)">' + r.dept + '</span></td>' +
+      '<td>' + r.category + '</td>' +
+      '<td>' + r.item + '</td>' +
+      '<td style="white-space:nowrap;">' + r.paydate + '</td>' +
+      '<td>' + r.vendor + '</td>' +
+      '<td class="amount-cell">' + fmtAmt(r.amount) + '</td>' +
+      '<td>' + statusBadge(r.status) + '</td>' +
+      '<td style="font-size:0.78rem;">' + (r.reviewedBy || '-') + '</td>' +
+      '<td style="font-size:0.78rem;color:var(--gray);max-width:120px;">' + (r.comment || '-') + '</td>' +
+      '<td>' + actionBtn + '</td>' +
       '</tr>';
   }
   tbody.innerHTML = html;
   var cnt = 0;
-  for (var k=0; k<requests.length; k++) { if (requests[k].status==='대기중') cnt++; }
+  for (var k = 0; k < requests.length; k++) { if (requests[k].status === '대기중') cnt++; }
   var tabBtn = document.getElementById('tabBtn-main');
-  if (tabBtn) tabBtn.innerHTML = '📋 신청 현황' + (cnt>0 ? ' <span class="badge-count">'+cnt+'</span>' : '');
+  if (tabBtn) tabBtn.innerHTML = '📋 신청 현황' + (cnt > 0 ? ' <span class="badge-count">' + cnt + '</span>' : '');
 }
 
 function renderReviewStats() {
-  var total=0, pending=0, approved=0, totalAmt=0;
-  for (var i=0; i<requests.length; i++) {
+  var total = 0, pending = 0, approved = 0, totalAmt = 0;
+  for (var i = 0; i < requests.length; i++) {
     total++;
-    if (requests[i].status==='대기중') pending++;
-    if (requests[i].status==='승인')   { approved++; totalAmt+=requests[i].amount; }
+    if (requests[i].status === '대기중') pending++;
+    if (requests[i].status === '승인') { approved++; totalAmt += requests[i].amount; }
   }
-  document.getElementById('reviewStats').innerHTML =
-    statCard('📋','blue','전체 신청', total+'건') +
-    statCard('⏳','yellow','검토 대기', pending+'건') +
-    statCard('✅','green','승인 완료', approved+'건') +
-    statCard('💰','blue','승인 총액', fmtAmt(totalAmt)+'원');
+  var el = document.getElementById('reviewStats');
+  if (el) el.innerHTML =
+    statCard('📋', 'blue',   '전체 신청', total + '건') +
+    statCard('⏳', 'yellow', '검토 대기', pending + '건') +
+    statCard('✅', 'green',  '승인 완료', approved + '건') +
+    statCard('💰', 'blue',   '승인 총액', fmtAmt(totalAmt) + '원');
 }
 
 /* ── 상세 모달 ── */
 function openDetail(id) {
   var r = null;
-  for (var i=0; i<requests.length; i++) { if (requests[i].id===id) { r=requests[i]; break; } }
+  for (var i = 0; i < requests.length; i++) { if (requests[i].id === id) { r = requests[i]; break; } }
   if (!r) return;
   document.getElementById('detailContent').innerHTML =
-    '<div class="detail-row"><span class="detail-label">신청자</span><span class="detail-value">'+r.requester+' ('+r.dept+')</span></div>' +
-    '<div class="detail-row"><span class="detail-label">신청일시</span><span class="detail-value">'+r.submittedAt+'</span></div>' +
-    '<div class="detail-row"><span class="detail-label">구분</span><span class="detail-value">'+r.category+'</span></div>' +
-    '<div class="detail-row"><span class="detail-label">품목</span><span class="detail-value">'+r.item+'</span></div>' +
-    '<div class="detail-row"><span class="detail-label">지급일</span><span class="detail-value">'+r.paydate+'</span></div>' +
-    '<div class="detail-row"><span class="detail-label">구매처</span><span class="detail-value"><strong>'+r.vendor+'</strong></span></div>' +
-    '<div class="detail-row"><span class="detail-label">금액</span><span class="detail-value" style="font-weight:700;color:var(--primary)">'+fmtAmt(r.amount)+' 원</span></div>' +
+    '<div class="detail-row"><span class="detail-label">신청자</span><span class="detail-value">' + r.requester + ' (' + r.dept + ')</span></div>' +
+    '<div class="detail-row"><span class="detail-label">신청일시</span><span class="detail-value">' + r.submittedAt + '</span></div>' +
+    '<div class="detail-row"><span class="detail-label">구분</span><span class="detail-value">' + r.category + '</span></div>' +
+    '<div class="detail-row"><span class="detail-label">품목</span><span class="detail-value">' + r.item + '</span></div>' +
+    '<div class="detail-row"><span class="detail-label">지급일</span><span class="detail-value">' + r.paydate + '</span></div>' +
+    '<div class="detail-row"><span class="detail-label">구매처</span><span class="detail-value"><strong>' + r.vendor + '</strong></span></div>' +
+    '<div class="detail-row"><span class="detail-label">금액</span><span class="detail-value" style="font-weight:700;color:var(--primary)">' + fmtAmt(r.amount) + ' 원</span></div>' +
     '<hr class="section-divider">' +
-    '<div class="detail-row"><span class="detail-label">상태</span><span class="detail-value">'+statusBadge(r.status)+'</span></div>' +
+    '<div class="detail-row"><span class="detail-label">상태</span><span class="detail-value">' + statusBadge(r.status) + '</span></div>' +
     (r.reviewedBy ?
-      '<div class="detail-row"><span class="detail-label">검토자</span><span class="detail-value">'+r.reviewedBy+'</span></div>' +
-      '<div class="detail-row"><span class="detail-label">검토일</span><span class="detail-value">'+r.reviewedAt+'</span></div>' +
-      '<div class="detail-row"><span class="detail-label">검토의견</span><span class="detail-value">'+(r.comment||'-')+'</span></div>'
+      '<div class="detail-row"><span class="detail-label">검토자</span><span class="detail-value">' + r.reviewedBy + '</span></div>' +
+      '<div class="detail-row"><span class="detail-label">검토일</span><span class="detail-value">' + r.reviewedAt + '</span></div>' +
+      '<div class="detail-row"><span class="detail-label">검토의견</span><span class="detail-value">' + (r.comment || '-') + '</span></div>'
     : '');
   document.getElementById('reviewSection').innerHTML = '';
   document.getElementById('modalActions').innerHTML  = '<button class="btn-secondary" onclick="closeModal(\'detailModal\')">닫기</button>';
@@ -993,68 +1053,68 @@ function openDetail(id) {
 /* ── 검토 모달 ── */
 function openReview(id) {
   var r = null;
-  for (var i=0; i<requests.length; i++) { if (requests[i].id===id) { r=requests[i]; break; } }
+  for (var i = 0; i < requests.length; i++) { if (requests[i].id === id) { r = requests[i]; break; } }
   if (!r) return;
   document.getElementById('detailContent').innerHTML =
-    '<div class="detail-row"><span class="detail-label">신청자</span><span class="detail-value">'+r.requester+' ('+r.dept+')</span></div>' +
-    '<div class="detail-row"><span class="detail-label">신청일시</span><span class="detail-value">'+r.submittedAt+'</span></div>' +
-    '<div class="detail-row"><span class="detail-label">구분</span><span class="detail-value">'+r.category+'</span></div>' +
-    '<div class="detail-row"><span class="detail-label">품목</span><span class="detail-value">'+r.item+'</span></div>' +
-    '<div class="detail-row"><span class="detail-label">지급일</span><span class="detail-value">'+r.paydate+'</span></div>' +
-    '<div class="detail-row"><span class="detail-label">구매처</span><span class="detail-value"><strong>'+r.vendor+'</strong></span></div>' +
-    '<div class="detail-row"><span class="detail-label">금액</span><span class="detail-value" style="font-weight:700;color:var(--primary)">'+fmtAmt(r.amount)+' 원</span></div>';
+    '<div class="detail-row"><span class="detail-label">신청자</span><span class="detail-value">' + r.requester + ' (' + r.dept + ')</span></div>' +
+    '<div class="detail-row"><span class="detail-label">신청일시</span><span class="detail-value">' + r.submittedAt + '</span></div>' +
+    '<div class="detail-row"><span class="detail-label">구분</span><span class="detail-value">' + r.category + '</span></div>' +
+    '<div class="detail-row"><span class="detail-label">품목</span><span class="detail-value">' + r.item + '</span></div>' +
+    '<div class="detail-row"><span class="detail-label">지급일</span><span class="detail-value">' + r.paydate + '</span></div>' +
+    '<div class="detail-row"><span class="detail-label">구매처</span><span class="detail-value"><strong>' + r.vendor + '</strong></span></div>' +
+    '<div class="detail-row"><span class="detail-label">금액</span><span class="detail-value" style="font-weight:700;color:var(--primary)">' + fmtAmt(r.amount) + ' 원</span></div>';
   document.getElementById('reviewSection').innerHTML =
     '<hr class="section-divider">' +
     '<div class="review-comment"><label>검토 의견 (선택)</label>' +
     '<textarea id="reviewComment" placeholder="승인/반려 사유를 입력하세요"></textarea></div>';
   document.getElementById('modalActions').innerHTML =
     '<button class="btn-secondary" onclick="closeModal(\'detailModal\')">취소</button>' +
-    '<button class="btn-reject"  onclick="doReview('+id+',\'반려\')">❌ 반려</button>' +
-    '<button class="btn-approve" onclick="doReview('+id+',\'승인\')">✅ 승인</button>';
+    '<button class="btn-reject"  onclick="doReview(' + id + ',\'반려\')">❌ 반려</button>' +
+    '<button class="btn-approve" onclick="doReview(' + id + ',\'승인\')">✅ 승인</button>';
   openModal('detailModal');
 }
 
 function doReview(id, decision) {
   var r = null;
-  for (var i=0; i<requests.length; i++) { if (requests[i].id===id) { r=requests[i]; break; } }
+  for (var i = 0; i < requests.length; i++) { if (requests[i].id === id) { r = requests[i]; break; } }
   if (!r) return;
   var comment = document.getElementById('reviewComment').value.trim();
-  var today   = new Date().toISOString().slice(0,10);
-  var updateData = { id:id, status:decision, reviewedBy:currentUser.name, reviewedAt:today, comment:comment };
+  var today   = new Date().toISOString().slice(0, 10);
+  var updateData = { id: id, status: decision, reviewedBy: currentUser.name, reviewedAt: today, comment: comment };
   closeModal('detailModal');
   showLoadingOverlay(true);
-  jsonpPost({ action:'review', data:updateData }, function(res) {
+  jsonpPost({ action: 'review', data: updateData }, function(res) {
     showLoadingOverlay(false);
     if (!res) { showToast('❌ 서버 연결 실패.', 'error'); return; }
     if (res.result === 'success') {
-      r.status=decision; r.reviewedBy=currentUser.name; r.reviewedAt=today; r.comment=comment;
-      showToast(decision==='승인' ? '✅ 승인 처리되었습니다.' : '❌ 반려 처리되었습니다.',
-                decision==='승인' ? 'success' : 'error');
+      r.status = decision; r.reviewedBy = currentUser.name; r.reviewedAt = today; r.comment = comment;
+      showToast(decision === '승인' ? '✅ 승인 처리되었습니다.' : '❌ 반려 처리되었습니다.',
+                decision === '승인' ? 'success' : 'error');
       renderReviewList(); renderReviewStats(); renderCalendar('rv');
     } else {
-      showToast('❌ 처리 실패: '+(res.message||'다시 시도해주세요.'), 'error');
+      showToast('❌ 처리 실패: ' + (res.message || '다시 시도해주세요.'), 'error');
     }
   });
 }
 
 /* ── CSV 다운로드 ── */
 function downloadCSV() {
-  var headers = ['No.','신청일시','담당자','부서','구분','품목','지급일','구매처','금액','상태','검토자','검토의견'];
+  var headers = ['No.', '신청일시', '담당자', '부서', '구분', '품목', '지급일', '구매처', '금액', '상태', '검토자', '검토의견'];
   var rows = [headers];
-  for (var i=0; i<requests.length; i++) {
+  for (var i = 0; i < requests.length; i++) {
     var r = requests[i];
-    rows.push([i+1, r.submittedAt, r.requester, r.dept, r.category, r.item, r.paydate, r.vendor, r.amount, r.status, r.reviewedBy||'', r.comment||'']);
+    rows.push([i + 1, r.submittedAt, r.requester, r.dept, r.category, r.item, r.paydate, r.vendor, r.amount, r.status, r.reviewedBy || '', r.comment || '']);
   }
   var csv = '';
-  for (var j=0; j<rows.length; j++) {
+  for (var j = 0; j < rows.length; j++) {
     var cols = [];
-    for (var k=0; k<rows[j].length; k++) cols.push('"'+String(rows[j][k]).replace(/"/g,'""')+'"');
+    for (var k = 0; k < rows[j].length; k++) cols.push('"' + String(rows[j][k]).replace(/"/g, '""') + '"');
     csv += cols.join(',') + '\n';
   }
-  var blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  var blob = new Blob(['\uFEFF' + csv], { type: 'text/csv;charset=utf-8;' });
   var a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = '지급신청_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.download = '지급신청_' + new Date().toISOString().slice(0, 10) + '.csv';
   a.click();
 }
 
@@ -1062,11 +1122,11 @@ function downloadCSV() {
 function clearAllData() {
   if (!confirm('⚠️ 모든 신청 데이터를 초기화하시겠습니까?\n이 작업은 되돌릴 수 없습니다.')) return;
   showLoadingOverlay(true);
-  jsonpPost({ action:'clearAll' }, function(res) {
+  jsonpPost({ action: 'clearAll' }, function(res) {
     showLoadingOverlay(false);
     if (!res) { showToast('❌ 서버 연결 실패.', 'error'); return; }
     if (res.result === 'success') {
-      requests=[]; nextId=1;
+      requests = []; nextId = 1;
       renderReviewList(); renderReviewStats(); buildMonthFilters();
       showToast('🗑️ 전체 데이터가 초기화되었습니다.', 'info');
     } else {
@@ -1078,83 +1138,83 @@ function clearAllData() {
 /* ── 캘린더 ── */
 function changeMonth(delta) {
   calMonth += delta;
-  if (calMonth > 11) { calMonth=0; calYear++; }
-  if (calMonth < 0)  { calMonth=11; calYear--; }
-  if (currentUser && currentUser.role==='requester') renderCalendar('req');
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  if (calMonth < 0)  { calMonth = 11; calYear--; }
+  if (currentUser && currentUser.role === 'requester') renderCalendar('req');
   else renderCalendar('rv');
 }
 
 function renderCalendar(mode) {
-  var titleId   = mode==='req' ? 'calTitle'    : 'calTitleRv';
-  var gridId    = mode==='req' ? 'calGrid'     : 'calGridRv';
-  var summaryId = mode==='req' ? 'calSummary'  : 'calSummaryRv';
+  var titleId   = mode === 'req' ? 'calTitle'    : 'calTitleRv';
+  var gridId    = mode === 'req' ? 'calGrid'     : 'calGridRv';
+  var summaryId = mode === 'req' ? 'calSummary'  : 'calSummaryRv';
   var titleEl   = document.getElementById(titleId);
   if (!titleEl) return;
-  titleEl.textContent = calYear+'년 '+(calMonth+1)+'월';
+  titleEl.textContent = calYear + '년 ' + (calMonth + 1) + '월';
 
   var firstDay = new Date(calYear, calMonth, 1).getDay();
-  var lastDate  = new Date(calYear, calMonth+1, 0).getDate();
+  var lastDate  = new Date(calYear, calMonth + 1, 0).getDate();
 
   var visible = [];
-  for (var i=0; i<requests.length; i++) {
+  for (var i = 0; i < requests.length; i++) {
     var r = requests[i];
-    if (mode==='req' && r.requester!==currentUser.name) continue;
+    if (mode === 'req' && r.requester !== currentUser.name) continue;
     var d = new Date(r.paydate);
-    if (d.getFullYear()===calYear && d.getMonth()===calMonth) visible.push(r);
+    if (d.getFullYear() === calYear && d.getMonth() === calMonth) visible.push(r);
   }
 
   var byDate = {};
-  for (var j=0; j<visible.length; j++) {
+  for (var j = 0; j < visible.length; j++) {
     var pd = visible[j].paydate;
-    if (!byDate[pd]) byDate[pd]=[];
+    if (!byDate[pd]) byDate[pd] = [];
     byDate[pd].push(visible[j]);
   }
 
-  var totalAmt=0, approvedAmt=0, pendingAmt=0;
-  for (var k=0; k<visible.length; k++) {
+  var totalAmt = 0, approvedAmt = 0, pendingAmt = 0;
+  for (var k = 0; k < visible.length; k++) {
     totalAmt += visible[k].amount;
-    if (visible[k].status==='승인')   approvedAmt += visible[k].amount;
-    if (visible[k].status==='대기중') pendingAmt  += visible[k].amount;
+    if (visible[k].status === '승인')   approvedAmt += visible[k].amount;
+    if (visible[k].status === '대기중') pendingAmt  += visible[k].amount;
   }
   var summaryEl = document.getElementById(summaryId);
   if (summaryEl) {
     summaryEl.innerHTML =
-      '<div style="background:#e8f0fe;border-radius:8px;padding:8px 14px;font-size:0.82rem;"><span style="color:var(--gray);">전체</span> <strong style="color:var(--primary);">'+fmtAmt(totalAmt)+'원</strong> ('+visible.length+'건)</div>' +
-      '<div style="background:#d4edda;border-radius:8px;padding:8px 14px;font-size:0.82rem;"><span style="color:var(--gray);">승인</span> <strong style="color:var(--success);">'+fmtAmt(approvedAmt)+'원</strong></div>' +
-      '<div style="background:#fff3cd;border-radius:8px;padding:8px 14px;font-size:0.82rem;"><span style="color:var(--gray);">대기중</span> <strong style="color:var(--warning);">'+fmtAmt(pendingAmt)+'원</strong></div>';
+      '<div style="background:#e8f0fe;border-radius:8px;padding:8px 14px;font-size:0.82rem;"><span style="color:var(--gray);">전체</span> <strong style="color:var(--primary);">' + fmtAmt(totalAmt) + '원</strong> (' + visible.length + '건)</div>' +
+      '<div style="background:#d4edda;border-radius:8px;padding:8px 14px;font-size:0.82rem;"><span style="color:var(--gray);">승인</span> <strong style="color:var(--success);">' + fmtAmt(approvedAmt) + '원</strong></div>' +
+      '<div style="background:#fff3cd;border-radius:8px;padding:8px 14px;font-size:0.82rem;"><span style="color:var(--gray);">대기중</span> <strong style="color:var(--warning);">' + fmtAmt(pendingAmt) + '원</strong></div>';
   }
 
-  var days = ['일','월','화','수','목','금','토'];
+  var days = ['일', '월', '화', '수', '목', '금', '토'];
   var html = '<div style="display:grid;grid-template-columns:repeat(7,1fr);gap:3px;">';
-  for (var di=0; di<days.length; di++) {
-    var dc0 = di===0?'#e53935':di===6?'#1565c0':'#555';
-    html += '<div style="text-align:center;font-weight:700;font-size:0.78rem;color:'+dc0+';padding:7px 0;">'+days[di]+'</div>';
+  for (var di = 0; di < days.length; di++) {
+    var dc0 = di === 0 ? '#e53935' : di === 6 ? '#1565c0' : '#555';
+    html += '<div style="text-align:center;font-weight:700;font-size:0.78rem;color:' + dc0 + ';padding:7px 0;">' + days[di] + '</div>';
   }
-  for (var bi=0; bi<firstDay; bi++) html += '<div style="min-height:80px;"></div>';
+  for (var bi = 0; bi < firstDay; bi++) html += '<div style="min-height:80px;"></div>';
 
   var todayStr = new Date().toISOString().split('T')[0];
-  for (var d=1; d<=lastDate; d++) {
-    var mm2 = (calMonth+1)<10?'0'+(calMonth+1):''+(calMonth+1);
-    var dd2 = d<10?'0'+d:''+d;
-    var ds  = calYear+'-'+mm2+'-'+dd2;
-    var isT = ds===todayStr;
-    var dow = (firstDay+d-1)%7;
-    var dc  = dow===0?'#e53935':dow===6?'#1565c0':'#222';
-    var items = byDate[ds]||[];
+  for (var d = 1; d <= lastDate; d++) {
+    var mm2 = (calMonth + 1) < 10 ? '0' + (calMonth + 1) : '' + (calMonth + 1);
+    var dd2 = d < 10 ? '0' + d : '' + d;
+    var ds  = calYear + '-' + mm2 + '-' + dd2;
+    var isT = ds === todayStr;
+    var dow = (firstDay + d - 1) % 7;
+    var dc  = dow === 0 ? '#e53935' : dow === 6 ? '#1565c0' : '#222';
+    var items = byDate[ds] || [];
     var dayTotal = 0;
-    for (var ti=0; ti<items.length; ti++) dayTotal += items[ti].amount;
+    for (var ti = 0; ti < items.length; ti++) dayTotal += items[ti].amount;
 
-    html += '<div style="min-height:80px;border:1px solid var(--border);border-radius:6px;padding:5px;background:'+(isT?'#e8f0fe':'#fff')+'">';
+    html += '<div style="min-height:80px;border:1px solid var(--border);border-radius:6px;padding:5px;background:' + (isT ? '#e8f0fe' : '#fff') + '">';
     html += '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;">';
-    html += '<span style="font-weight:700;font-size:0.8rem;color:'+(isT?'var(--primary)':dc)+';">'+d+(isT?' ●':'')+'</span>';
-    if (dayTotal>0) html += '<span style="font-size:0.65rem;color:var(--primary);font-weight:700;">'+fmtAmt(dayTotal)+'</span>';
+    html += '<span style="font-weight:700;font-size:0.8rem;color:' + (isT ? 'var(--primary)' : dc) + ';">' + d + (isT ? ' ●' : '') + '</span>';
+    if (dayTotal > 0) html += '<span style="font-size:0.65rem;color:var(--primary);font-weight:700;">' + fmtAmt(dayTotal) + '</span>';
     html += '</div>';
-    for (var ii=0; ii<items.length; ii++) {
+    for (var ii = 0; ii < items.length; ii++) {
       var ri = items[ii];
-      var bg = ri.status==='승인'?'#d4edda':ri.status==='반려'?'#f8d7da':'#fff3cd';
-      var fc = ri.status==='승인'?'#1e7e34':ri.status==='반려'?'#b02a37':'#856404';
-      var vn = ri.vendor.length>5?ri.vendor.slice(0,5)+'…':ri.vendor;
-      html += '<div style="background:'+bg+';color:'+fc+';border-radius:3px;padding:2px 4px;font-size:0.67rem;font-weight:600;margin-bottom:2px;cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" onclick="openDetail('+ri.id+')" title="'+ri.vendor+' '+fmtAmt(ri.amount)+'원">'+vn+' '+fmtAmt(ri.amount)+'원</div>';
+      var bg = ri.status === '승인' ? '#d4edda' : ri.status === '반려' ? '#f8d7da' : '#fff3cd';
+      var fc = ri.status === '승인' ? '#1e7e34' : ri.status === '반려' ? '#b02a37' : '#856404';
+      var vn = ri.vendor.length > 5 ? ri.vendor.slice(0, 5) + '…' : ri.vendor;
+      html += '<div style="background:' + bg + ';color:' + fc + ';border-radius:3px;padding:2px 4px;font-size:0.67rem;font-weight:600;margin-bottom:2px;cursor:pointer;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;" onclick="openDetail(' + ri.id + ')" title="' + ri.vendor + ' ' + fmtAmt(ri.amount) + '원">' + vn + ' ' + fmtAmt(ri.amount) + '원</div>';
     }
     html += '</div>';
   }
@@ -1182,20 +1242,20 @@ function showLoadingOverlay(show) {
 function fmtAmt(n) { return Number(n).toLocaleString('ko-KR'); }
 
 function statusBadge(s) {
-  var map  = {'대기중':'pending','승인':'approved','반려':'rejected'};
-  var icon = {'대기중':'⏳','승인':'✅','반려':'❌'};
-  return '<span class="status-badge status-'+map[s]+'">'+icon[s]+' '+s+'</span>';
+  var map  = { '대기중': 'pending', '승인': 'approved', '반려': 'rejected' };
+  var icon = { '대기중': '⏳', '승인': '✅', '반려': '❌' };
+  return '<span class="status-badge status-' + map[s] + '">' + icon[s] + ' ' + s + '</span>';
 }
 
 function statCard(icon, color, label, value) {
-  return '<div class="stat-card"><div class="stat-icon '+color+'">'+icon+'</div><div class="stat-info"><p>'+label+'</p><h3>'+value+'</h3></div></div>';
+  return '<div class="stat-card"><div class="stat-icon ' + color + '">' + icon + '</div><div class="stat-info"><p>' + label + '</p><h3>' + value + '</h3></div></div>';
 }
 
 function openModal(id)  { document.getElementById(id).classList.add('open'); }
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 
 document.getElementById('detailModal').addEventListener('click', function(e) {
-  if (e.target===this) closeModal('detailModal');
+  if (e.target === this) closeModal('detailModal');
 });
 
 function showToast(msg, type) {
@@ -1203,9 +1263,8 @@ function showToast(msg, type) {
   var t = document.getElementById('toast');
   t.textContent = msg; t.className = 'show ' + type;
   clearTimeout(t._timer);
-  t._timer = setTimeout(function() { t.className=''; }, 3200);
+  t._timer = setTimeout(function() { t.className = ''; }, 3200);
 }
-
 </script>
 </body>
 </html>
