@@ -399,8 +399,8 @@
 <div id="urlSettingBox" style="display:none;margin-top:10px;text-align:left;">
 <div class="form-group">
 <label style="font-size:0.75rem;">Apps Script URL</label>
-<input id="urlInput" placeholder="https://script.google.com/..." style="font-size:0.75rem;" type="text">
-</input></div>
+<input id="urlInput" placeholder="https://script.google.com/..." style="font-size:0.75rem;" type="text"/>
+</div>
 <button onclick="saveUrl()" style="width:100%;padding:8px;background:var(--primary);color:#fff;border:none;border-radius:7px;font-size:0.82rem;cursor:pointer;">저장</button>
 </div>
 </div>
@@ -773,22 +773,41 @@ function jsonpPost(payload, callback) {
   document.head.appendChild(s);
 }
 
-/* ── 데이터 로드 ── */
-function loadData(callback) {
-  showLoadingOverlay(true);
-  jsonpGet('action=getAll', function(data) {
+/* ── 날짜 포맷 (요일 포함) ── */
+function formatDateKo(dateVal) {
+  var days = ['일','월','화','수','목','금','토'];
+  var d = new Date(dateVal);
+  if (isNaN(d.getTime())) return String(dateVal);
+  var y  = d.getFullYear();
+  var mo = d.getMonth()+1 < 10 ? '0'+(d.getMonth()+1) : ''+(d.getMonth()+1);
+  var dy = d.getDate()    < 10 ? '0'+d.getDate()       : ''+d.getDate();
+  var hh = d.getHours()   < 10 ? '0'+d.getHours()      : ''+d.getHours();
+  var mm = d.getMinutes() < 10 ? '0'+d.getMinutes()    : ''+d.getMinutes();
+  var dow = days[d.getDay()];
+  return y+'-'+mo+'-'+dy+'('+dow+') '+hh+':'+mm;
+}
+
+/* ── 데이터 처리 ── */
+function processLoadedData(data, callback) {
+  try {
     showLoadingOverlay(false);
     if (!data || data.result !== 'success') {
-      showToast('❌ 데이터 로드 실패. 잠시 후 다시 시도해주세요.', 'error');
+      showToast('❌ 데이터 로드 실패. URL을 확인해주세요.', 'error');
       buildMonthFilters();
       if (currentUser.role === 'requester') { renderMyList(); renderMyStats(); renderCalendar('req'); }
       else { renderReviewList(); renderReviewStats(); renderCalendar('rv'); }
       return;
     }
     requests = data.requests || [];
+    for (var i = 0; i < requests.length; i++) {
+      var r = requests[i];
+      if (r.submittedAt) r.submittedAt = formatDateKo(r.submittedAt);
+      r.id     = Number(r.id);
+      r.amount = Number(r.amount);
+    }
     if (requests.length > 0) {
       var ids = [];
-      for (var i = 0; i < requests.length; i++) ids.push(requests[i].id);
+      for (var j = 0; j < requests.length; j++) ids.push(requests[j].id);
       nextId = Math.max.apply(null, ids) + 1;
     } else {
       nextId = 1;
@@ -797,7 +816,23 @@ function loadData(callback) {
     if (currentUser.role === 'requester') { renderMyList(); renderMyStats(); renderCalendar('req'); }
     else { renderReviewList(); renderReviewStats(); renderCalendar('rv'); }
     if (callback) callback();
-  });
+  } catch(e) {
+    showLoadingOverlay(false);
+    showToast('❌ 데이터 처리 오류: ' + e.message, 'error');
+  }
+}
+
+/* ── 데이터 로드 ── */
+function loadData(callback) {
+  showLoadingOverlay(true);
+  fetch(APPS_SCRIPT_URL + '?action=getAll')
+    .then(function(r) { return r.json(); })
+    .then(function(data) { processLoadedData(data, callback); })
+    .catch(function() {
+      jsonpGet('action=getAll', function(data) {
+        processLoadedData(data, callback);
+      });
+    });
 }
 
 /* ── 월 필터 ── */
