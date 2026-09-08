@@ -374,18 +374,15 @@
 <label>담당자 이름</label>
 <input id="loginName" onkeydown="if(event.key==='Enter')doLogin()" placeholder="예: 김범근" type="text"/>
 </div>
-<div class="form-group">
+<div class="form-group" id="deptGroup">
 <label>부서</label>
 <input id="loginDept" onkeydown="if(event.key==='Enter')doLogin()" placeholder="예: 구매팀, 영업팀" type="text"/>
 </div>
 <div class="form-group" id="reviewerPwGroup" style="display:none;">
 <label>비밀번호</label>
-<input id="loginPw" onkeydown="if(event.key==='Enter')doLogin()" placeholder="검토자 비밀번호" type="password"/>
+<input id="loginPw" onkeydown="if(event.key==='Enter')doLogin()" placeholder="비밀번호 입력" type="password"/>
 </div>
 <button class="btn-primary" onclick="doLogin()">로그인</button>
-<div class="login-hint" id="loginHint" style="display:none;">
-      🔑 검토자(회계팀) 비밀번호: <strong>admin</strong>
-</div>
 </div>
 </div>
 <!-- 메인 앱 -->
@@ -427,7 +424,7 @@
 <option value="">선택</option>
 <option>계약</option>
 <option>전략</option>
-<option>중개</option>
+<option>중계</option>
 <option>기타</option>
 </select>
 </div>
@@ -588,14 +585,7 @@ var nextId      = 1;
 var calYear, calMonth;
 
 /* ── 로그인 ── */
-function selectRole(role, btn) {
-  currentRole = role;
-  var btns = document.querySelectorAll('.login-role-tabs button');
-  for (var i=0; i<btns.length; i++) btns[i].classList.remove('active');
-  btn.classList.add('active');
-  document.getElementById('reviewerPwGroup').style.display = role === 'reviewer' ? 'block' : 'none';
-  document.getElementById('loginHint').style.display       = role === 'reviewer' ? 'block' : 'none';
-}
+
 
 function doLogin() {
   var name = document.getElementById('loginName').value.trim();
@@ -615,14 +605,7 @@ function doLogout() {
   currentUser = null;
   document.getElementById('appScreen').style.display  = 'none';
   document.getElementById('loginScreen').style.display = 'flex';
-  document.getElementById('loginPw').value   = '';
-  document.getElementById('loginName').value = '';
-  document.getElementById('loginDept').value = '';
-  currentRole = 'requester';
-  var btns = document.querySelectorAll('.login-role-tabs button');
-  for (var i=0; i<btns.length; i++) btns[i].classList.toggle('active', i===0);
-  document.getElementById('reviewerPwGroup').style.display = 'none';
-  document.getElementById('loginHint').style.display       = 'none';
+  
 }
 
 /* ── 앱 초기화 ── */
@@ -746,29 +729,7 @@ function jsonpPost(payload, callback) {
 }
 
 /* ── 데이터 로드 ── */
-function loadData(callback) {
-  showLoadingOverlay(true);
-  jsonpGet('action=getAll', function(data) {
-    if (!data) {
-      showLoadingOverlay(false);
-      showToast('❌ 데이터 로드 실패. 연결을 확인하세요.', 'error');
-      return;
-    }
-    requests = data.requests || [];
-    if (requests.length > 0) {
-      var ids = [];
-      for (var i=0; i<requests.length; i++) ids.push(requests[i].id);
-      nextId = Math.max.apply(null, ids) + 1;
-    } else {
-      nextId = 1;
-    }
-    showLoadingOverlay(false);
-    buildMonthFilters();
-    if (currentUser.role === 'requester') { renderMyList(); renderMyStats(); renderCalendar('req'); }
-    else { renderReviewList(); renderReviewStats(); renderCalendar('rv'); }
-    if (callback) callback();
-  });
-}
+
 
 /* ── 월 필터 ── */
 function buildMonthFilters() {
